@@ -90,7 +90,8 @@ export function useAudioPlayer() {
         }
       });
 
-      audio.play().catch(() => {
+      audio.play().catch((err) => {
+        console.error(`Audio playback failed: ${url}`, err);
         stopAudio();
         clearState();
       });

@@ -1,6 +1,6 @@
 import type { Tour } from "./types";
 
-const AUDIO_BASE = "https://raw.githubusercontent.com/RaBaKa4142/letsgetthebag/main/Files/Cities/Zuerich";
+const AUDIO_BASE = "/audio/Zuerich";
 
 export const zurich: Tour = {
   id: "zurich",
@@ -24,8 +24,7 @@ export const zurich: Tour = {
   },
   guide: {
     name: "Marco",
-    introAudio:
-      "https://raw.githubusercontent.com/RaBaKa4142/AltstadtZurich/main/Zurich%20Introduction%20Guide.mp3",
+    introAudio: `${AUDIO_BASE}/Zurich%20Introduction%20Guide.mp3`,
     askEnabled: true,
   },
   completeText: "You've explored the heart of Zurich Altstadt",

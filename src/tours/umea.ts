@@ -1,6 +1,6 @@
 import type { Tour } from "./types";
 
-const AUDIO_BASE = "https://raw.githubusercontent.com/RaBaKa4142/letsgetthebag/main/Files/Cities/Umea";
+const AUDIO_BASE = "/audio/Umea";
 
 export const umea: Tour = {
   id: "umea",
