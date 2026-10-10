@@ -1,0 +1,5 @@
+project_id = "letsgetthebag"
+
+[functions.ask-marco]
+# Only signed-in users (valid Supabase JWT) may call this function.
+verify_jwt = true
