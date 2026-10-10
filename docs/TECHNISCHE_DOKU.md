@@ -21,7 +21,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | ID | Tour | POIs | Sprache | Guide |
 |---|---|---|---|---|
 | `zurich` | Zurich Altstadt | 7 | Englisch | Marco |
-| `kitzingen` | Kitzingen Altstadt | 5 | Deutsch | Stefanie |
+| `kitzingen` | Kitzingen Altstadt (ausgeblendet, Audio fehlt) | 5 | Deutsch | Stefanie |
 | `umea` | Umeå City Tour | 7 | Englisch | Elin |
 
 **Wichtig: Es gibt noch kein echtes GPS-Tracking.** Der Fortschritt läuft über den Button „Next Stop“, der den Nutzer simuliert zum nächsten Punkt bewegt. Die Startseite verspricht „GPS-guided“ und bittet um Standortfreigabe, das ist aber noch nicht umgesetzt. Der Standort wird nur auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“).
@@ -38,7 +38,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | Auth | Supabase Auth (E-Mail + Passwort) über `@supabase/supabase-js` 2 |
 | Backend | eine Supabase Edge Function (Deno): `ask-marco` |
 | KI | ElevenLabs Speech-to-Text (`scribe_v1`), Anthropic Claude (`claude-sonnet-4-6`), ElevenLabs Text-to-Speech (`eleven_multilingual_v2`) |
-| Audio-Hosting | MP3-Dateien über `raw.githubusercontent.com` (siehe Abschnitt 6) |
+| Audio-Hosting | MP3-Dateien statisch aus `public/audio/` (siehe Abschnitt 6) |
 | Code-Qualität | ESLint 9 und `tsc --noEmit`. Keine Tests, keine CI |
 
 Es gibt keinen eigenen Server und keinen Router (die Navigation läuft über React-State) und keine eigene Datenbank.
@@ -51,7 +51,6 @@ Es gibt keinen eigenen Server und keinen Router (die Navigation läuft über Rea
 Browser (React SPA)
  ├─ Supabase Auth ──────────────── Login / Registrierung / Passwort-Reset
  ├─ Mapbox GL + Directions API ─── Karte, Fußweg-Route (öffentlicher pk.-Token)
- ├─ raw.githubusercontent.com ──── Tour-Audiodateien (MP3)
  └─ Supabase Edge Function "ask-marco"  (nur mit gültigem User-JWT)
        ├─ ElevenLabs STT   (Frage → Text)
        ├─ Anthropic Claude (Text → Antwort im Charakter des Guides)
@@ -190,13 +189,11 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
 
 ## 6. Assets und Inhalte
 
-- **Tour-Audio:** Die MP3-Dateien werden direkt von `raw.githubusercontent.com` geladen, und zwar aus drei Repos:
-  - Zürich-Touraudio: `RaBaKa4142/letsgetthebag/Files/Cities/Zuerich`
-  - Zürich-Guide-Vorstellung: `RaBaKa4142/AltstadtZurich`
-  - Kitzingen: `RaBaKa4142/Kitzingen`
-  - Umeå: `RaBaKa4142/letsgetthebag/Files/Cities/Umea`
+- **Tour-Audio:** Die MP3-Dateien liegen im Repo unter `public/audio/<Stadt>/` und werden von Vite bzw. dem Hosting statisch unter `/audio/…` ausgeliefert (zusammen etwa 28 MB):
+  - Zürich (inkl. Guide-Vorstellung): `public/audio/Zuerich`
+  - Umeå: `public/audio/Umea`
 
-  GitHub raw ist kein CDN: Es gibt Rate-Limits, keine Garantien und kein Caching-Konzept. Die Dateien liegen außerdem im App-Repo und machen etwa 28 MB in `Files/` aus.
+  Früher kamen die Dateien von `raw.githubusercontent.com` aus fremden Repos (`RaBaKa4142/…`). Diese Repos gibt es nicht mehr, deshalb wurde auf lokale Dateien umgestellt. Das Kitzingen-Audio war nur dort gespeichert und ist verloren. Die Tour ist deshalb in `src/tours/index.ts` ausgeblendet, bis die MP3s unter `public/audio/Kitzingen/` liegen und `AUDIO_BASE` in `kitzingen.ts` angepasst ist.
 - **Bilder:**
   - Zürich (`/Zurich.jpg`) und Kitzingen (`/image.png`) liegen in `public/`.
   - Das Umeå-Bild wird von Pexels per Hotlink geladen.
@@ -235,7 +232,7 @@ Die Vorlage liegt in `.env.example`. `.env.local` ist per gitignore ausgeschloss
 | GPS / Geofencing | Fortschritt nur über „Next Stop“ | Das Kernversprechen „GPS-guided“ ist noch nicht erfüllt. Ein Feld für den Geofence-Radius war in den alten Kitzingen- und Umeå-Daten vorhanden, wurde aber nie genutzt. |
 | Nutzerdaten | Bewertung, Tourfortschritt und abgeschlossene Touren werden nicht gespeichert | Es gibt keine Analytics, keinen Fortsetzen-Modus und kein Feedback |
 | Inhalte im Code | Touren sind TS-Dateien | Redakteure können ohne Entwickler nichts ändern |
-| Audio-Hosting | GitHub raw | Zuverlässigkeit und Performance; das Repo wird groß |
+| Audio-Hosting | MP3s im App-Repo (`public/audio/`) | Das Repo wird groß; mittelfristig eher Supabase Storage oder ein CDN |
 | Bundle | Tour-Chunk etwa 1,8 MB (davon ~500 KB gzip), überwiegend Mapbox | Langsamer erster Tourstart im Mobilnetz |
 | Offline | kein Service Worker, keine PWA | Bei schlechtem Netz unterwegs bricht das Audio ab |
 | Ask Guide | ~14 s Latenz, eine Stimme für alle, kein Verlauf | User Experience |
