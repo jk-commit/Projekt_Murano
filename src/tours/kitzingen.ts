@@ -1,6 +1,6 @@
 import type { Tour } from "./types";
 
-const AUDIO_BASE = "https://raw.githubusercontent.com/RaBaKa4142/Kitzingen/main";
+const AUDIO_BASE = "/audio/Kitzingen";
 
 export const kitzingen: Tour = {
   id: "kitzingen",
@@ -18,7 +18,7 @@ export const kitzingen: Tour = {
   intro: { label: "Welcome to Kitzingen", audio: [`${AUDIO_BASE}/01-Introduction.mp3`] },
   guide: {
     name: "Stefanie",
-    introAudio: `${AUDIO_BASE}/Kitzingen%20Introduction%20Tour%20Guide.mp3`,
+    introAudio: `${AUDIO_BASE}/Kitzingen Introduction Tour Guide.mp3`,
     askEnabled: true,
   },
   completeText: "You've explored the heart of Kitzingen Altstadt",

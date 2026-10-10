@@ -21,7 +21,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | ID | Tour | POIs | Sprache | Guide |
 |---|---|---|---|---|
 | `zurich` | Zurich Altstadt | 7 | Englisch | Marco |
-| `kitzingen` | Kitzingen Altstadt (ausgeblendet, Audio fehlt) | 5 | Deutsch | Stefanie |
+| `kitzingen` | Kitzingen Altstadt | 5 | Deutsch | Stefanie |
 | `umea` | Umeå City Tour | 7 | Englisch | Elin |
 
 **Wichtig: Es gibt noch kein echtes GPS-Tracking.** Der Fortschritt läuft über den Button „Next Stop“, der den Nutzer simuliert zum nächsten Punkt bewegt. Die Startseite verspricht „GPS-guided“ und bittet um Standortfreigabe, das ist aber noch nicht umgesetzt. Der Standort wird nur auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“).
@@ -193,7 +193,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Zürich (inkl. Guide-Vorstellung): `public/audio/Zuerich`
   - Umeå: `public/audio/Umea`
 
-  Früher kamen die Dateien von `raw.githubusercontent.com` aus fremden Repos (`RaBaKa4142/…`). Diese Repos gibt es nicht mehr, deshalb wurde auf lokale Dateien umgestellt. Das Kitzingen-Audio war nur dort gespeichert und ist verloren. Die Tour ist deshalb in `src/tours/index.ts` ausgeblendet, bis die MP3s unter `public/audio/Kitzingen/` liegen und `AUDIO_BASE` in `kitzingen.ts` angepasst ist.
+  Früher kamen die Dateien von `raw.githubusercontent.com` aus fremden Repos (`RaBaKa4142/…`). Diese Repos gibt es nicht mehr, deshalb wurde auf lokale Dateien umgestellt. Das Kitzingen-Audio wurde aus `RaBaKa4142/Kitzingen` nach `public/audio/Kitzingen/` übernommen.
 - **Bilder:**
   - Zürich (`/Zurich.jpg`) und Kitzingen (`/image.png`) liegen in `public/`.
   - Das Umeå-Bild wird von Pexels per Hotlink geladen.
