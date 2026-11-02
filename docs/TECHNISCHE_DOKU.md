@@ -197,7 +197,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Zürich (inkl. Guide-Vorstellung): `public/audio/Zuerich`
   - Umeå: `public/audio/Umea`
 
-  Früher kamen die Dateien von `raw.githubusercontent.com` aus fremden Repos (`RaBaKa4142/…`). Diese Repos gibt es nicht mehr, deshalb wurde auf lokale Dateien umgestellt. Das Kitzingen-Audio war nur dort gespeichert und ist verloren. Die Tour ist deshalb in `src/tours/index.ts` ausgeblendet, bis die MP3s unter `public/audio/Kitzingen/` liegen und `AUDIO_BASE` in `kitzingen.ts` angepasst ist.
+  Früher kamen die Dateien von `raw.githubusercontent.com` aus fremden Repos (`RaBaKa4142/…`). Diese Repos gibt es nicht mehr, deshalb wurde auf lokale Dateien umgestellt. Das Kitzingen-Audio wurde aus `RaBaKa4142/Kitzingen` nach `public/audio/Kitzingen/` übernommen.
 - **Bilder:**
   - Zürich (`/Zurich.jpg`) und Kitzingen (`/image.png`) liegen in `public/`.
   - Das Umeå-Bild wird von Pexels per Hotlink geladen.

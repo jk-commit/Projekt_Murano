@@ -1,5 +1,6 @@
 import type { Tour } from "./types";
 import { zurich } from "./zurich";
+import { kitzingen } from "./kitzingen";
 import { umea } from "./umea";
 import { umeaDe } from "./umea.de";
 
