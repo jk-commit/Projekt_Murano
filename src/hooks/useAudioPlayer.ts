@@ -2,6 +2,27 @@ import { useCallback, useRef, useState } from "react";
 
 const PAUSE_BETWEEN_TRACKS_MS = 3000;
 
+export const PLAYBACK_RATES: readonly number[] = [0.75, 1, 1.25, 1.5, 2];
+const PLAYBACK_RATE_KEY = "murano.playbackRate";
+
+// The chosen speed is remembered per browser; storage may be unavailable (private mode).
+function loadPlaybackRate(): number {
+  try {
+    const saved = Number(localStorage.getItem(PLAYBACK_RATE_KEY));
+    return PLAYBACK_RATES.includes(saved) ? saved : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function savePlaybackRate(rate: number) {
+  try {
+    localStorage.setItem(PLAYBACK_RATE_KEY, String(rate));
+  } catch {
+    // Not persisted — the speed still applies for this tour.
+  }
+}
+
 export interface AudioPlayerState {
   isPlaying: boolean;
   currentTrackIndex: number;
@@ -18,8 +39,10 @@ export function useAudioPlayer() {
     progress: 0,
     label: "",
   });
+  const [playbackRate, setPlaybackRateState] = useState(loadPlaybackRate);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playbackRateRef = useRef(playbackRate);
   const playlistRef = useRef<string[]>([]);
   const labelRef = useRef("");
   const trackIndexRef = useRef(0);
@@ -60,6 +83,7 @@ export function useAudioPlayer() {
       stopAudio();
 
       const audio = new Audio(url);
+      audio.playbackRate = playbackRateRef.current;
       audioRef.current = audio;
 
       audio.addEventListener("timeupdate", () => {
@@ -149,7 +173,24 @@ export function useAudioPlayer() {
     playTrackAtIndex(0);
   }, [playTrackAtIndex]);
 
+  // Applies to the track playing now and to every following one.
+  const setPlaybackRate = useCallback((rate: number) => {
+    playbackRateRef.current = rate;
+    if (audioRef.current) audioRef.current.playbackRate = rate;
+    setPlaybackRateState(rate);
+    savePlaybackRate(rate);
+  }, []);
+
   const isActive = useCallback(() => activeRef.current, []);
 
-  return { state, playSequence, togglePause, skipCurrent, replayCurrent, isActive };
+  return {
+    state,
+    playbackRate,
+    setPlaybackRate,
+    playSequence,
+    togglePause,
+    skipCurrent,
+    replayCurrent,
+    isActive,
+  };
 }

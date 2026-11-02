@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { ChevronRight } from "lucide-react";
-import { poiStops, type Tour } from "../tours";
+import { poiStops, tourLanguages, type Tour } from "../tours";
 import { ORANGE } from "../theme";
 
 interface TourCardProps {
@@ -48,7 +48,8 @@ export const TourCard = forwardRef<HTMLDivElement, TourCardProps>(function TourC
       <div className="bg-white p-5">
         <h3 className="text-lg font-bold text-gray-900 mb-1">{tour.shortTitle}</h3>
         <p className="text-sm text-gray-500 mb-4">
-          {poiStops(tour).length} stops &middot; {tour.duration} &middot; {tour.language.label}
+          {poiStops(tour).length} stops &middot; {tour.duration} &middot;{" "}
+          {tourLanguages(tour.id).map((t) => t.language.label).join(" / ")}
         </p>
         <button
           onClick={onSelect}

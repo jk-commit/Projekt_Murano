@@ -1,9 +1,11 @@
 import { Pause, Play, ChevronUp, MapPin, SkipForward, RotateCcw } from "lucide-react";
-import { AudioPlayerState } from "../hooks/useAudioPlayer";
+import { AudioPlayerState, PLAYBACK_RATES } from "../hooks/useAudioPlayer";
 import { ORANGE, ORANGE_TINT } from "../theme";
 
 interface AudioDrawerProps {
   state: AudioPlayerState;
+  playbackRate: number;
+  onPlaybackRateChange: (rate: number) => void;
   onTogglePause: () => void;
   onSkip: () => void;
   onReplay: () => void;
@@ -11,10 +13,21 @@ interface AudioDrawerProps {
   hint?: string;
 }
 
-export function AudioDrawer({ state, onTogglePause, onSkip, onReplay, hint }: AudioDrawerProps) {
+export function AudioDrawer({
+  state,
+  playbackRate,
+  onPlaybackRateChange,
+  onTogglePause,
+  onSkip,
+  onReplay,
+  hint,
+}: AudioDrawerProps) {
   const { isPlaying, currentTrackIndex, totalTracks, progress, label } = state;
 
   if (!isPlaying && totalTracks === 0) return null;
+
+  // Each tap moves to the next preset speed, wrapping from the fastest back to the slowest.
+  const nextRate = PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(playbackRate) + 1) % PLAYBACK_RATES.length];
 
   return (
     <div
@@ -46,6 +59,14 @@ export function AudioDrawer({ state, onTogglePause, onSkip, onReplay, hint }: Au
               </p>
             )}
           </div>
+          <button
+            onClick={() => onPlaybackRateChange(nextRate)}
+            className="flex-shrink-0 min-w-[3.25rem] h-9 px-2.5 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-semibold tabular-nums transition-all active:scale-90"
+            style={playbackRate === 1 ? { color: "#4b5563" } : { color: ORANGE, backgroundColor: ORANGE_TINT }}
+            aria-label={`Playback speed ${playbackRate}×, tap for ${nextRate}×`}
+          >
+            {playbackRate}×
+          </button>
         </div>
 
         {/* Controls */}

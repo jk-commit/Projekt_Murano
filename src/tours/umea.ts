@@ -10,7 +10,7 @@ export const umea: Tour = {
   description:
     "Explore the riverside city of Umeå with your personal audio guide — 7 hand-picked stops along the Ume River, from Broparken to Bildmuseet.",
   duration: "~1.5 hours",
-  language: { label: "English", flag: "🇬🇧" },
+  language: { code: "en", label: "English", flag: "🇬🇧" },
   heroImage:
     "https://images.pexels.com/photos/15421913/pexels-photo-15421913.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
   searchTerms: ["umeå", "umea", "sweden"],

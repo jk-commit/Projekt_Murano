@@ -29,7 +29,8 @@ export interface Tour {
   region: string;
   description: string;
   duration: string;
-  language: { label: string; flag: string };
+  /** `code` tells language variants of the same tour apart and is sent to the guide ("en", "de"). */
+  language: { code: string; label: string; flag: string };
   heroImage: string;
   heroCredit?: string;
   /** Lowercase terms the landing page search matches against. */

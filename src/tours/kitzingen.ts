@@ -10,7 +10,7 @@ export const kitzingen: Tour = {
   description:
     "Entdecke die historische Altstadt von Kitzingen mit deiner persönlichen Audioführung — 5 sorgfältig ausgewählte Stopps, reiche Geschichte, verborgene Geschichten.",
   duration: "~1 hour",
-  language: { label: "German", flag: "🇩🇪" },
+  language: { code: "de", label: "German", flag: "🇩🇪" },
   heroImage: "/image.png",
   heroCredit: "© Tilman2007 / CC BY-SA 4.0",
   searchTerms: ["kitzingen", "altstadt", "bavaria"],

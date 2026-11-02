@@ -5,11 +5,14 @@ import { ORANGE } from "../theme";
 
 interface TourStartScreenProps {
   tour: Tour;
+  /** All language variants of this tour; a picker is shown when there is more than one. */
+  languages: Tour[];
+  onSelectLanguage: (code: string) => void;
   onStart: () => void;
   onBack: () => void;
 }
 
-export function TourStartScreen({ tour, onStart, onBack }: TourStartScreenProps) {
+export function TourStartScreen({ tour, languages, onSelectLanguage, onStart, onBack }: TourStartScreenProps) {
   const pois = poiStops(tour);
   const [guideRevealed, setGuideRevealed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -104,15 +107,43 @@ export function TourStartScreen({ tour, onStart, onBack }: TourStartScreenProps)
               {pois.length} stops &middot; {tour.duration} &middot; GPS-guided
             </span>
           </div>
-          {/* Language pill */}
-          <button
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-gray-50 text-xs font-medium text-gray-500 cursor-default select-none"
-            tabIndex={-1}
-          >
-            <Globe className="w-3 h-3" />
-            {tour.language.flag} {tour.language.label}
-          </button>
+          {/* Language pill — only a static label when the tour has a single language */}
+          {languages.length < 2 && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-gray-50 text-xs font-medium text-gray-500 select-none">
+              <Globe className="w-3 h-3" />
+              {tour.language.flag} {tour.language.label}
+            </span>
+          )}
         </div>
+
+        {/* Language picker */}
+        {languages.length > 1 && (
+          <div className="mb-8 -mt-4">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
+              <Globe className="w-3 h-3" />
+              Language
+            </p>
+            <div className="flex gap-2" role="radiogroup" aria-label="Tour language">
+              {languages.map((variant) => {
+                const selected = variant.language.code === tour.language.code;
+                return (
+                  <button
+                    key={variant.language.code}
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => onSelectLanguage(variant.language.code)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${
+                      selected ? "text-gray-900" : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                    }`}
+                    style={selected ? { borderColor: ORANGE } : undefined}
+                  >
+                    {variant.language.flag} {variant.language.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Stops list */}
         <div className="bg-gray-50 rounded-2xl p-4 mb-8">
