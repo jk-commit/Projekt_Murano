@@ -18,7 +18,7 @@ interface TourViewProps {
 export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
   const { message, showToast } = useToast();
   const engine = useTourEngine(tour, showToast);
-  const { state: audioState, togglePause, skipCurrent, replayCurrent } = engine.audio;
+  const { state: audioState, playbackRate, setPlaybackRate, togglePause, skipCurrent, replayCurrent } = engine.audio;
   const drawerVisible = audioState.isPlaying || audioState.totalTracks > 0;
 
   return (
@@ -38,6 +38,8 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
 
       <AudioDrawer
         state={audioState}
+        playbackRate={playbackRate}
+        onPlaybackRateChange={setPlaybackRate}
         onTogglePause={togglePause}
         onSkip={skipCurrent}
         onReplay={replayCurrent}
@@ -51,6 +53,7 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
       {tour.guide.askEnabled && (
         <AskGuide
           tourId={tour.id}
+          language={tour.language.code}
           guideName={tour.guide.name}
           placeName={engine.currentPlaceName}
           drawerVisible={drawerVisible}

@@ -12,7 +12,9 @@ const MAX_LABEL_LENGTH = 80;
 
 // One entry per tour; ids match src/tours/*.ts. Unknown tour ids are rejected,
 // so the client can only pick a guide, never write its own prompt.
-const TOURS: Record<string, { guide: string; city: string; language: string; persona: string }> = {
+// voiceId: the guide's voice from the tour recordings; without it, or if the ElevenLabs account
+// behind ELEVENLABS_API_KEY doesn't have that voice, answers use ELEVENLABS_VOICE_ID.
+const TOURS: Record<string, { guide: string; city: string; language: string; persona: string; voiceId?: string }> = {
   zurich: {
     guide: "Marco",
     city: "Zurich Altstadt",
@@ -31,11 +33,16 @@ const TOURS: Record<string, { guide: string; city: string; language: string; per
     city: "Umeå",
     language: "English",
     persona: "You are a local who loves Umeå's culture, its riverside and the stories of its people.",
+    voiceId: "cpem3N5MtM55uEhRFyBJ",
   },
 };
 
-function systemPrompt(tourId: string, poiLabel: string): string {
-  const { guide, city, language, persona } = TOURS[tourId];
+// Language codes the client may send ("language" form field) to override a tour's default language.
+const LANGUAGES: Record<string, string> = { en: "English", de: "German" };
+
+function systemPrompt(tourId: string, poiLabel: string, languageCode: string): string {
+  const { guide, city, persona } = TOURS[tourId];
+  const language = Object.hasOwn(LANGUAGES, languageCode) ? LANGUAGES[languageCode] : TOURS[tourId].language;
   return `You are ${guide}, a warm and witty personal city guide for ${city}. ${persona} You are currently at: ${poiLabel}. Answer the user's question in character as ${guide} — conversational, warm, historically informed, and concise. Answer in ${language}. Keep answers under 100 words so they work well as spoken audio. Never break character.`;
 }
 
@@ -101,8 +108,8 @@ async function askClaude(question: string, system: string): Promise<string> {
   return text;
 }
 
-async function textToSpeech(text: string): Promise<ArrayBuffer> {
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+async function textToSpeech(text: string, voiceId: string): Promise<ArrayBuffer> {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: "POST",
     headers: { "xi-api-key": ELEVENLABS_KEY, "content-type": "application/json" },
     body: JSON.stringify({
@@ -126,6 +133,7 @@ Deno.serve(async (req) => {
 
   let audio: Blob;
   let system: string;
+  let voiceId: string | undefined;
   try {
     const form = await req.formData();
     const file = form.get("audio");
@@ -136,7 +144,8 @@ Deno.serve(async (req) => {
     const tourId = String(form.get("tourId") ?? "zurich");
     if (!Object.hasOwn(TOURS, tourId)) return errorResponse("tour", 400);
     const poiLabel = String(form.get("poiLabel") ?? TOURS[tourId].city).slice(0, MAX_LABEL_LENGTH);
-    system = systemPrompt(tourId, poiLabel);
+    system = systemPrompt(tourId, poiLabel, String(form.get("language") ?? ""));
+    voiceId = TOURS[tourId].voiceId;
   } catch {
     return errorResponse("input", 400);
   }
@@ -158,7 +167,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const speech = await textToSpeech(answer);
+    let speech: ArrayBuffer;
+    try {
+      speech = await textToSpeech(answer, voiceId ?? VOICE_ID);
+    } catch (e) {
+      if (!voiceId) throw e;
+      console.error("Tour voice failed, falling back to ELEVENLABS_VOICE_ID", e);
+      speech = await textToSpeech(answer, VOICE_ID);
+    }
     return new Response(speech, {
       headers: { ...corsHeaders, "content-type": "audio/mpeg" },
     });

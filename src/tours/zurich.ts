@@ -10,7 +10,7 @@ export const zurich: Tour = {
   description:
     "Walk the medieval streets of Zurich's old town with your personal audio guide — 7 hand-crafted stops, rich histories, hidden stories.",
   duration: "~1.5 hours",
-  language: { label: "English", flag: "🇬🇧" },
+  language: { code: "en", label: "English", flag: "🇬🇧" },
   heroImage: "/Zurich.jpg",
   searchTerms: ["zurich", "zürich", "altstadt", "switzerland"],
   center: { lat: 47.3724, lng: 8.5408 },

@@ -22,7 +22,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 |---|---|---|---|---|
 | `zurich` | Zurich Altstadt | 7 | Englisch | Marco |
 | `kitzingen` | Kitzingen Altstadt (ausgeblendet, Audio fehlt) | 5 | Deutsch | Stefanie |
-| `umea` | Umeå City Tour | 7 | Englisch | Elin |
+| `umea` | Umeå City Tour | 7 | Englisch, Deutsch | Elin |
 
 **Wichtig: Es gibt noch kein echtes GPS-Tracking.** Der Fortschritt läuft über den Button „Next Stop“, der den Nutzer simuliert zum nächsten Punkt bewegt. Die Startseite verspricht „GPS-guided“ und bittet um Standortfreigabe, das ist aber noch nicht umgesetzt. Der Standort wird nur auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“).
 
@@ -104,6 +104,8 @@ Touren sind reine Daten. Die gesamte Logik steckt in einer gemeinsamen Engine. K
 2. Die Tour in `tours/index.ts` eintragen.
 3. Einen Eintrag in `TOURS` der Edge Function ergänzen, damit Ask Guide funktioniert.
 
+**Sprachvarianten:** Eine Tour kann mehrere Sprachen haben. Jede Sprache ist ein eigenes `Tour`-Objekt mit derselben `id` und eigenem `language.code` (z. B. `umea.de.ts`, das Koordinaten und Reihenfolge aus `umea.ts` übernimmt). In `tours/index.ts` stehen die Varianten einer Tour zusammen in `tourVariants`; die erste ist die Standardsprache. Hat eine Tour mehrere Varianten, zeigt der Startscreen eine Sprachauswahl. Die UI-Texte (Buttons, Toasts) bleiben englisch.
+
 ### 3.3 Tour-Ablauf (`useTourEngine`)
 
 1. Beim Öffnen der Tour spielt das Intro. Der Schritt steht auf −1.
@@ -140,6 +142,8 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - `audio`: Aufnahme als webm, max. 10 MB
   - `tourId`: `zurich` | `kitzingen` | `umea`
   - `poiLabel`: der aktuelle Ort, max. 80 Zeichen
+  - `language` (optional): `en` | `de`, die Antwortsprache. Fehlt das Feld oder ist der Wert unbekannt, gilt die Sprache aus `TOURS`.
+- **Stimme:** Eine Tour kann in `TOURS` eine eigene `voiceId` haben (Umeå: Elins Stimme aus den Touraufnahmen). Kennt der ElevenLabs-Account hinter `ELEVENLABS_API_KEY` diese Stimme nicht, antwortet die Function mit `ELEVENLABS_VOICE_ID` und schreibt „Tour voice failed“ ins Log.
 - **Response:** `audio/mpeg`. Im Fehlerfall JSON `{ error, stage }`, wobei `stage` einer dieser Werte ist: `auth`, `input`, `tour`, `stt`, `claude`, `tts`, `config`.
 - **Absicherung:**
   1. `verify_jwt = true`: Der Supabase-Gateway verlangt ein JWT.
@@ -236,7 +240,7 @@ Die Vorlage liegt in `.env.example`. `.env.local` ist per gitignore ausgeschloss
 | Bundle | Tour-Chunk etwa 1,8 MB (davon ~500 KB gzip), überwiegend Mapbox | Langsamer erster Tourstart im Mobilnetz |
 | Offline | kein Service Worker, keine PWA | Bei schlechtem Netz unterwegs bricht das Audio ab |
 | Ask Guide | ~14 s Latenz, eine Stimme für alle, kein Verlauf | User Experience |
-| i18n | Die UI ist englisch, die Kitzingen-Beschreibung und das Audio sind deutsch | uneinheitlich, keine Sprachwahl |
+| i18n | Tourinhalte haben pro Tour wählbare Sprachvarianten (bisher Umeå EN/DE), die UI-Texte sind immer englisch | In einer deutschen Tour stehen Buttons wie „Next Stop“ oder „Start Tour“ weiter auf Englisch |
 | Routing | keine URLs pro Tour | Touren lassen sich nicht direkt verlinken oder teilen |
 | Qualität | keine Tests, keine CI | Regressionen fallen erst manuell auf |
 | Umgebungen | nur ein Supabase-Projekt | Dev und Prod nicht getrennt |

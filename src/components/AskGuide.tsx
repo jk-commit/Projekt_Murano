@@ -9,6 +9,8 @@ type Status = "idle" | "recording" | "thinking" | "speaking";
 
 interface AskGuideProps {
   tourId: string;
+  /** Language code of the tour variant ("en", "de"); the guide answers in it. */
+  language: string;
   guideName: string;
   /** The place the user is at or walking to; sent as context for the answer. */
   placeName: string;
@@ -20,6 +22,7 @@ interface AskGuideProps {
 
 export function AskGuide({
   tourId,
+  language,
   guideName,
   placeName,
   drawerVisible,
@@ -59,6 +62,7 @@ export function AskGuide({
         const formData = new FormData();
         formData.append("audio", audioBlob, "question.webm");
         formData.append("tourId", tourId);
+        formData.append("language", language);
         formData.append("poiLabel", placeName);
         const res = await fetch(ASK_MARCO_URL, {
           method: "POST",
@@ -88,7 +92,7 @@ export function AskGuide({
         fail(`${guideName} couldn't hear you — try again`);
       }
     },
-    [tourId, guideName, placeName, fail, onToggleAudio],
+    [tourId, language, guideName, placeName, fail, onToggleAudio],
   );
 
   const handleTap = useCallback(async () => {
