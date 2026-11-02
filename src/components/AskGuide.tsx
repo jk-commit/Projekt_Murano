@@ -5,7 +5,35 @@ import { ORANGE } from "../theme";
 
 const ASK_MARCO_URL = `${SUPABASE_URL}/functions/v1/ask-marco`;
 
-type Status = "idle" | "recording" | "thinking" | "speaking";
+/** "ready": the answer has arrived but the browser blocked autoplay, so it waits for a tap. */
+type Status = "idle" | "recording" | "thinking" | "ready" | "speaking";
+
+let silentClipUrl: string | undefined;
+
+/** 0.1 s of silence as a WAV blob URL, used to unlock audio playback during a tap. */
+function silentClip(): string {
+  if (!silentClipUrl) {
+    const samples = 800; // 8 kHz, 8-bit mono
+    const view = new DataView(new ArrayBuffer(44 + samples));
+    const text = (offset: number, s: string) =>
+      [...s].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+    text(0, "RIFF");
+    view.setUint32(4, 36 + samples, true);
+    text(8, "WAVEfmt ");
+    view.setUint32(16, 16, true); // fmt chunk size
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // mono
+    view.setUint32(24, 8000, true); // sample rate
+    view.setUint32(28, 8000, true); // byte rate
+    view.setUint16(32, 1, true); // block align
+    view.setUint16(34, 8, true); // bits per sample
+    text(36, "data");
+    view.setUint32(40, samples, true);
+    new Uint8Array(view.buffer, 44).fill(128); // 8-bit silence
+    silentClipUrl = URL.createObjectURL(new Blob([view.buffer], { type: "audio/wav" }));
+  }
+  return silentClipUrl;
+}
 
 interface AskGuideProps {
   tourId: string;
@@ -34,11 +62,14 @@ export function AskGuide({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const pausedRef = useRef(false);
+  const answerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const answerUrlRef = useRef<string | null>(null);
 
   const statusLabel: Record<Status, string> = {
     idle: `Tap to ask ${guideName}`,
     recording: "Recording...",
     thinking: "Thinking...",
+    ready: `Tap to hear ${guideName}`,
     speaking: "Speaking...",
   };
 
@@ -49,6 +80,41 @@ export function AskGuide({
     },
     [onToast],
   );
+
+  // Mobile browsers (iOS Safari above all) only start audio from a tap, and the answer arrives
+  // seconds later. So one element is unlocked with a silent clip on the tap that ends the
+  // recording, and the answer then plays on that same element.
+  const answerAudio = useCallback(() => {
+    if (!answerAudioRef.current) {
+      const audio = new Audio();
+      audio.setAttribute("webkit-playsinline", "");
+      audio.setAttribute("playsinline", "");
+      answerAudioRef.current = audio;
+    }
+    return answerAudioRef.current;
+  }, []);
+
+  // Ends the answer: frees its audio and resumes the tour audio if asking had paused it.
+  const finishAnswer = useCallback(() => {
+    const audio = answerAudio();
+    audio.onended = null;
+    audio.onerror = null;
+    if (answerUrlRef.current) URL.revokeObjectURL(answerUrlRef.current);
+    answerUrlRef.current = null;
+    if (pausedRef.current) {
+      pausedRef.current = false;
+      onToggleAudio();
+    }
+  }, [answerAudio, onToggleAudio]);
+
+  const playAnswer = useCallback(async () => {
+    try {
+      await answerAudio().play();
+      setStatus("speaking");
+    } catch {
+      setStatus("ready");
+    }
+  }, [answerAudio]);
 
   const processRecording = useCallback(
     async (audioBlob: Blob) => {
@@ -74,31 +140,41 @@ export function AskGuide({
         });
         if (!res.ok) throw new Error("Ask guide failed");
         const blob = await res.blob();
+        if (blob.size === 0) throw new Error("Empty answer");
+
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.setAttribute("webkit-playsinline", "");
-        audio.setAttribute("playsinline", "");
-        setStatus("speaking");
-        audio.play();
+        answerUrlRef.current = url;
+        const audio = answerAudio();
         audio.onended = () => {
-          URL.revokeObjectURL(url);
+          finishAnswer();
           setStatus("idle");
-          if (pausedRef.current) {
-            pausedRef.current = false;
-            onToggleAudio();
-          }
         };
+        audio.onerror = () => {
+          finishAnswer();
+          fail(`${guideName}'s answer couldn't be played — try again`);
+        };
+        audio.src = url;
+        await playAnswer();
       } catch {
         fail(`${guideName} couldn't hear you — try again`);
       }
     },
-    [tourId, language, guideName, placeName, fail, onToggleAudio],
+    [tourId, language, guideName, placeName, fail, answerAudio, finishAnswer, playAnswer],
   );
 
   const handleTap = useCallback(async () => {
     if (status === "thinking" || status === "speaking") return;
 
+    if (status === "ready") {
+      playAnswer();
+      return;
+    }
+
     if (status === "recording") {
+      // This tap is the last user gesture before the answer arrives: unlock playback now.
+      const audio = answerAudio();
+      audio.src = silentClip();
+      audio.play().catch(() => {});
       mediaRecorderRef.current?.stop();
       return;
     }
@@ -129,7 +205,7 @@ export function AskGuide({
     } catch {
       fail(`${guideName} couldn't hear you — try again`);
     }
-  }, [status, guideName, isAudioPlaying, onToggleAudio, processRecording, fail]);
+  }, [status, guideName, isAudioPlaying, onToggleAudio, processRecording, fail, answerAudio, playAnswer]);
 
   const bottomPx = drawerVisible ? 264 : 100;
 
