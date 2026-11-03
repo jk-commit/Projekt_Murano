@@ -12,5 +12,5 @@
    supabase secrets set ANTHROPIC_API_KEY=... ELEVENLABS_API_KEY=... ELEVENLABS_VOICE_ID=9IzcwKmvwJcw58h3KnlH
    supabase functions deploy ask-marco
    ```
-3. In the Supabase dashboard → Authentication → URL Configuration, set the Site URL to the production domain and add `http://localhost:5173` to the redirect URLs (needed for confirmation and password-reset emails).
+3. In the Supabase dashboard → Authentication → URL Configuration, set the Site URL to the production domain (`https://dancing-mooncake-f4dc49.netlify.app`) and add `https://dancing-mooncake-f4dc49.netlify.app/**` and `http://localhost:5173/**` to the redirect URLs (needed for confirmation and password-reset emails). If the Site URL is left at its default (`http://localhost:3000`), confirmation links point to localhost.
 4. On the hosting provider (e.g. Netlify), set the same `VITE_*` environment variables.
