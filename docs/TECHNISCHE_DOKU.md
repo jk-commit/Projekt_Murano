@@ -195,7 +195,10 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
 
 - **Tour-Audio:** Die MP3-Dateien liegen im Repo unter `public/audio/<Stadt>/` und werden von Vite bzw. dem Hosting statisch unter `/audio/…` ausgeliefert (zusammen etwa 28 MB):
   - Zürich (inkl. Guide-Vorstellung): `public/audio/Zuerich`
-  - Umeå: `public/audio/Umea`
+  - Umeå: `public/audio/Umea` (Englisch), `public/audio/Umea/de` (Deutsch)
+  - Stavanger: `public/audio/Stavanger/de` (nur Deutsch)
+
+  Ablage für neue Städte: `public/audio/<Stadt>/<sprache>/NN_StopN_Name.mp3` (ASCII, keine Leerzeichen). Unter `public/audio/` liegen nur die MP3s; die Sprechtexte stehen unverändert als `.txt` mit gleichem Namen in `scripts/<Stadt>/<sprache>/`. Erzeugt wird das Audio pro Stadt mit `scripts/generate-<stadt>-audio.mjs` (`npm run audio:<stadt>`). Jede neue Stadt entsteht auf einem eigenen Branch `feature/<stadt>-tour` und kommt per Pull Request nach `main`.
 
   Früher kamen die Dateien von `raw.githubusercontent.com` aus fremden Repos (`RaBaKa4142/…`). Diese Repos gibt es nicht mehr, deshalb wurde auf lokale Dateien umgestellt. Das Kitzingen-Audio wurde aus `RaBaKa4142/Kitzingen` nach `public/audio/Kitzingen/` übernommen.
 - **Bilder:**
