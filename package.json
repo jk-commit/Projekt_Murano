@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "audio:umea": "node --env-file=.env.local scripts/generate-umea-audio.mjs"
+    "audio:umea": "node --env-file=.env.local scripts/generate-umea-audio.mjs",
+    "audio:stavanger": "node --env-file=.env.local scripts/generate-stavanger-audio.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
