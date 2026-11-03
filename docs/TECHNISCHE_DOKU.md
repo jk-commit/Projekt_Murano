@@ -23,6 +23,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | `zurich` | Zurich Altstadt | 7 | Englisch | Marco |
 | `kitzingen` | Kitzingen Altstadt (ausgeblendet, Audio fehlt) | 5 | Deutsch | Stefanie |
 | `umea` | Umeå City Tour | 7 | Englisch, Deutsch | Elin |
+| `stavanger` | Stavanger Stadtführung | 9 | Deutsch | Håkon |
 
 **Wichtig: Es gibt noch kein echtes GPS-Tracking.** Der Fortschritt läuft über den Button „Next Stop“, der den Nutzer simuliert zum nächsten Punkt bewegt. Die Startseite verspricht „GPS-guided“ und bittet um Standortfreigabe, das ist aber noch nicht umgesetzt. Der Standort wird nur auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“).
 
@@ -67,7 +68,7 @@ src/
   lib/supabase.ts         Supabase-Client, liest VITE_SUPABASE_URL / _ANON_KEY
   tours/
     types.ts              Datenmodell Tour / Stop
-    zurich.ts, kitzingen.ts, umea.ts   Tourdaten (reine Daten)
+    zurich.ts, kitzingen.ts, umea.ts, stavanger.ts   Tourdaten (reine Daten)
     index.ts              Registry: tours[], getTour(id), poiStops(tour)
   hooks/
     useTourEngine.ts      Tour-Ablauf (Intro, Next Stop, Timer-Trigger, Abschluss)
@@ -140,7 +141,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
 - **Endpoint:** `POST {SUPABASE_URL}/functions/v1/ask-marco`
 - **Request:** `multipart/form-data` mit den Feldern
   - `audio`: Aufnahme als webm, max. 10 MB
-  - `tourId`: `zurich` | `kitzingen` | `umea`
+  - `tourId`: `zurich` | `kitzingen` | `umea` | `stavanger`
   - `poiLabel`: der aktuelle Ort, max. 80 Zeichen
   - `language` (optional): `en` | `de`, die Antwortsprache. Fehlt das Feld oder ist der Wert unbekannt, gilt die Sprache aus `TOURS`.
 - **Stimme:** Eine Tour kann in `TOURS` eine eigene `voiceId` haben (Umeå: Elins Stimme aus den Touraufnahmen). Kennt der ElevenLabs-Account hinter `ELEVENLABS_API_KEY` diese Stimme nicht, antwortet die Function mit `ELEVENLABS_VOICE_ID` und schreibt „Tour voice failed“ ins Log.
@@ -205,6 +206,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Zürich (`/Zurich.jpg`) und Kitzingen (`/image.png`) liegen in `public/`.
   - Das Umeå-Bild wird von Pexels per Hotlink geladen.
   - Bildnachweis Kitzingen: „© Tilman2007 / CC BY-SA 4.0“.
+  - Stavanger (`/Stavanger.jpg`, „Gamle Stavanger 13“ von Wikimedia Commons): „© Maarten Heerlien / CC BY 2.0“.
 - **Tourinhalte** (Texte, Koordinaten, Audio-URLs) stehen als TypeScript im Code. Jede inhaltliche Änderung braucht deshalb ein neues Deployment, ein CMS gibt es nicht.
 
 ---

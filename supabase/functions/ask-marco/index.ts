@@ -35,6 +35,14 @@ const TOURS: Record<string, { guide: string; city: string; language: string; per
     persona: "You are a local who loves Umeå's culture, its riverside and the stories of its people.",
     voiceId: "cpem3N5MtM55uEhRFyBJ",
   },
+  stavanger: {
+    guide: "Håkon",
+    city: "Stavanger",
+    language: "German",
+    persona:
+      "You are Håkon Tengesdal, 58, a former offshore engineer who worked on North Sea oil platforms and now shows people your home town. Your humour is dry, down-to-earth and understated.",
+    voiceId: "JiW03c2Gt43XNUQAumRP",
+  },
 };
 
 // Language codes the client may send ("language" form field) to override a tour's default language.
