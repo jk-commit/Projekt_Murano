@@ -1,9 +1,16 @@
 import { useState, FormEvent, ReactNode } from "react";
-import { MapPin, Mail, Lock, ArrowLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { MapPin, Mail, Lock, ArrowLeft, ChevronRight, CheckCircle2, Circle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { ORANGE, ORANGE_TINT } from "../theme";
 
 const MIN_PASSWORD_LENGTH = 8;
+
+const PASSWORD_RULES: { label: string; isMet: (password: string) => boolean }[] = [
+  { label: `At least ${MIN_PASSWORD_LENGTH} characters`, isMet: (p) => p.length >= MIN_PASSWORD_LENGTH },
+  { label: "At least one uppercase letter", isMet: (p) => /\p{Lu}/u.test(p) },
+  { label: "At least one lowercase letter", isMet: (p) => /\p{Ll}/u.test(p) },
+  { label: "At least one number", isMet: (p) => /\d/.test(p) },
+];
 
 type Mode = "signIn" | "signUp" | "forgot" | "updatePassword";
 
@@ -26,11 +33,14 @@ function Field({
   placeholder: string;
   autoComplete: string;
 }) {
+  const [revealed, setRevealed] = useState(false);
+  const isPassword = type === "password";
+
   return (
     <label className="flex items-center bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all focus-within:border-orange-300 focus-within:shadow-sm">
       <span className="text-gray-400 ml-4 shrink-0">{icon}</span>
       <input
-        type={type}
+        type={isPassword && revealed ? "text" : type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -38,7 +48,46 @@ function Field({
         required
         className="flex-1 min-w-0 py-3.5 px-3 text-sm text-gray-800 placeholder-gray-400 outline-none bg-transparent"
       />
+      {isPassword && (
+        <button
+          type="button"
+          onClick={() => setRevealed((r) => !r)}
+          // Keep focus (and the mobile keyboard) in the input while toggling.
+          onMouseDown={(e) => e.preventDefault()}
+          aria-label={revealed ? "Hide password" : "Show password"}
+          aria-pressed={revealed}
+          className="shrink-0 p-3.5 text-gray-400 hover:text-gray-700 transition-colors"
+        >
+          {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      )}
     </label>
+  );
+}
+
+function PasswordRules({ password, confirmPassword }: { password: string; confirmPassword: string }) {
+  const items = [
+    ...PASSWORD_RULES.map(({ label, isMet }) => ({ label, met: isMet(password) })),
+    { label: "Passwords match", met: password.length > 0 && password === confirmPassword },
+  ];
+
+  return (
+    <ul className="flex flex-col gap-1.5 px-1 py-1">
+      {items.map(({ label, met }) => (
+        <li
+          key={label}
+          className={`flex items-center gap-2 text-xs transition-colors ${met ? "text-green-600" : "text-gray-500"}`}
+        >
+          {met ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+          ) : (
+            <Circle className="w-4 h-4 shrink-0 text-gray-300" aria-hidden="true" />
+          )}
+          <span>{label}</span>
+          <span className="sr-only">{met ? "(met)" : "(not met)"}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -46,14 +95,17 @@ export function AuthScreen({ recovery = false }: AuthScreenProps) {
   const [mode, setMode] = useState<Mode>(recovery ? "updatePassword" : "signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const activeMode: Mode = recovery ? "updatePassword" : mode;
+  const choosesPassword = activeMode === "signUp" || activeMode === "updatePassword";
 
   const switchMode = (next: Mode) => {
     setMode(next);
+    setConfirmPassword("");
     setError(null);
     setNotice(null);
   };
@@ -63,8 +115,13 @@ export function AuthScreen({ recovery = false }: AuthScreenProps) {
     setError(null);
     setNotice(null);
 
-    if ((activeMode === "signUp" || activeMode === "updatePassword") && password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    if (choosesPassword && !PASSWORD_RULES.every((rule) => rule.isMet(password))) {
+      setError("Please meet all password requirements.");
+      return;
+    }
+
+    if (choosesPassword && password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -83,6 +140,7 @@ export function AuthScreen({ recovery = false }: AuthScreenProps) {
         if (!data.session) {
           setNotice("Almost there! We sent you a confirmation email — click the link to activate your account.");
           setPassword("");
+          setConfirmPassword("");
         }
       } else if (activeMode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -178,10 +236,30 @@ export function AuthScreen({ recovery = false }: AuthScreenProps) {
                   icon={<Lock className="w-4 h-4" />}
                   type="password"
                   value={password}
-                  onChange={setPassword}
-                  placeholder={activeMode === "signIn" ? "Password" : `New password (min. ${MIN_PASSWORD_LENGTH} characters)`}
+                  onChange={(value) => {
+                    setPassword(value);
+                    setError(null);
+                  }}
+                  placeholder={activeMode === "signIn" ? "Password" : "New password"}
                   autoComplete={activeMode === "signIn" ? "current-password" : "new-password"}
                 />
+              )}
+
+              {choosesPassword && (
+                <>
+                  <Field
+                    icon={<Lock className="w-4 h-4" />}
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(value) => {
+                      setConfirmPassword(value);
+                      setError(null);
+                    }}
+                    placeholder="Repeat password"
+                    autoComplete="new-password"
+                  />
+                  <PasswordRules password={password} confirmPassword={confirmPassword} />
+                </>
               )}
 
               {activeMode === "signIn" && (

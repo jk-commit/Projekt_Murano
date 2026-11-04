@@ -129,6 +129,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
 
 - Methode: nur E-Mail + Passwort. OAuth, Magic Link und anonyme Nutzer sind aus.
 - Registrierung mit Bestätigungs-Mail (`mailer_autoconfirm: false`).
+- Passwortregeln (mind. 8 Zeichen, Groß- und Kleinbuchstabe, Zahl) und die Wiederholung des Passworts prüft der `AuthScreen` beim Registrieren und beim Setzen eines neuen Passworts. Das ist nur eine Client-Prüfung; serverseitig gelten die Einstellungen im Supabase-Dashboard.
 - Passwort-Reset über einen Mail-Link. Die App erkennt das Event `PASSWORD_RECOVERY` und zeigt dann „Neues Passwort setzen“.
 - **Die gesamte App liegt hinter dem Login.** Ohne Session sieht man nur den `AuthScreen`.
 - Session-Handling übernimmt `supabase-js` (localStorage, automatischer Token-Refresh).
