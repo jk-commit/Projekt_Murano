@@ -74,7 +74,7 @@ src/
   hooks/
     useTourEngine.ts      Tour-Ablauf (Intro, Next Stop, Zurück, Sprünge, Timer-Trigger, Abschluss)
     useUserLocation.ts    Echter Standort des Geräts während der Tour
-    useAudioPlayer.ts     Playlist-Player (3 s Pause zwischen Tracks)
+    useAudioPlayer.ts     Playlist-Player (3 s Pause zwischen Tracks, 15-s-Sprünge innerhalb eines Tracks)
     useAuth.ts            Session + Passwort-Recovery-Status
     useToast.ts
   components/

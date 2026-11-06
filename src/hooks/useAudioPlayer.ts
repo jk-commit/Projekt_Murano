@@ -3,6 +3,10 @@ import { useCallback, useRef, useState } from "react";
 const PAUSE_BETWEEN_TRACKS_MS = 3000;
 
 export const PLAYBACK_RATES: readonly number[] = [0.75, 1, 1.25, 1.5, 2];
+export const SEEK_SECONDS = 15;
+// Forward seeks stop just short of the end so the track finishes by playing, not by seeking:
+// a paused track stays paused and "ended" fires the same way in every browser.
+const SEEK_END_MARGIN_SECONDS = 0.1;
 const PLAYBACK_RATE_KEY = "murano.playbackRate";
 
 // The chosen speed is remembered per browser; storage may be unavailable (private mode).
@@ -170,13 +174,30 @@ export function useAudioPlayer() {
     clearState();
   }, [stopAudio, clearState]);
 
-  // Restarts the current waypoint's audio from track 0
-  const replayCurrent = useCallback(() => {
-    if (!activeRef.current && playlistRef.current.length === 0) return;
-    isPausedRef.current = false;
-    activeRef.current = true;
-    playTrackAtIndex(0);
-  }, [playTrackAtIndex]);
+  // Moves within the current track; seeking does not cross into another track.
+  const seekBy = useCallback((seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio || audio.readyState < HTMLMediaElement.HAVE_METADATA) return;
+
+    // In the pause between tracks the next one starts by itself, so only going back does anything.
+    const inTrackGap = audio.ended;
+    if (inTrackGap && seconds > 0) return;
+
+    const lastPosition = Math.max(audio.duration - SEEK_END_MARGIN_SECONDS, 0);
+    audio.currentTime = Math.min(Math.max(audio.currentTime + seconds, 0), lastPosition);
+
+    if (inTrackGap) {
+      if (trackGapTimerRef.current) clearTimeout(trackGapTimerRef.current);
+      if (!isPausedRef.current) {
+        audio.play().catch((err) => console.error("Audio playback failed after seeking", err));
+      }
+    }
+    setState((prev) => ({
+      ...prev,
+      currentTrackIndex: trackIndexRef.current,
+      progress: audio.currentTime / audio.duration,
+    }));
+  }, []);
 
   // Applies to the track playing now and to every following one.
   const setPlaybackRate = useCallback((rate: number) => {
@@ -195,7 +216,7 @@ export function useAudioPlayer() {
     playSequence,
     togglePause,
     skipCurrent,
-    replayCurrent,
+    seekBy,
     isActive,
   };
 }

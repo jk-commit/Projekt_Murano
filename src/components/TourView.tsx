@@ -23,7 +23,7 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
   const engine = useTourEngine(tour, showToast);
   const location = useUserLocation();
   const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
-  const { state: audioState, playbackRate, setPlaybackRate, togglePause, skipCurrent, replayCurrent } = engine.audio;
+  const { state: audioState, playbackRate, setPlaybackRate, togglePause, seekBy } = engine.audio;
   const drawerVisible = audioState.isPlaying || audioState.totalTracks > 0;
 
   return (
@@ -53,8 +53,7 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
         playbackRate={playbackRate}
         onPlaybackRateChange={setPlaybackRate}
         onTogglePause={togglePause}
-        onSkip={skipCurrent}
-        onReplay={replayCurrent}
+        onSeek={seekBy}
         hint={engine.walkHint}
       />
 

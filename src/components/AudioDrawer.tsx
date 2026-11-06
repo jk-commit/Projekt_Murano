@@ -1,5 +1,5 @@
-import { Pause, Play, ChevronUp, MapPin, SkipForward, RotateCcw } from "lucide-react";
-import { AudioPlayerState, PLAYBACK_RATES } from "../hooks/useAudioPlayer";
+import { Pause, Play, ChevronUp, MapPin, RotateCcw, RotateCw } from "lucide-react";
+import { AudioPlayerState, PLAYBACK_RATES, SEEK_SECONDS } from "../hooks/useAudioPlayer";
 import { ORANGE, ORANGE_TINT } from "../theme";
 
 interface AudioDrawerProps {
@@ -7,10 +7,28 @@ interface AudioDrawerProps {
   playbackRate: number;
   onPlaybackRateChange: (rate: number) => void;
   onTogglePause: () => void;
-  onSkip: () => void;
-  onReplay: () => void;
+  /** Moves within the current track, in seconds (negative = back). */
+  onSeek: (seconds: number) => void;
   /** Extra line under the track info, e.g. the walking time to the next stop. */
   hint?: string;
+}
+
+function SeekButton({ direction, onSeek }: { direction: "back" | "forward"; onSeek: (seconds: number) => void }) {
+  const isBack = direction === "back";
+  const Icon = isBack ? RotateCcw : RotateCw;
+
+  return (
+    <button
+      onClick={() => onSeek(isBack ? -SEEK_SECONDS : SEEK_SECONDS)}
+      className="relative w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all active:scale-90"
+      aria-label={`${isBack ? "Back" : "Forward"} ${SEEK_SECONDS} seconds`}
+    >
+      <Icon className="w-8 h-8" strokeWidth={1.5} />
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold" aria-hidden="true">
+        {SEEK_SECONDS}
+      </span>
+    </button>
+  );
 }
 
 export function AudioDrawer({
@@ -18,8 +36,7 @@ export function AudioDrawer({
   playbackRate,
   onPlaybackRateChange,
   onTogglePause,
-  onSkip,
-  onReplay,
+  onSeek,
   hint,
 }: AudioDrawerProps) {
   const { isPlaying, currentTrackIndex, totalTracks, progress, label } = state;
@@ -71,13 +88,7 @@ export function AudioDrawer({
 
         {/* Controls */}
         <div className="flex items-center justify-center gap-6 mt-4 mb-4">
-          <button
-            onClick={onReplay}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all active:scale-90"
-            aria-label="Replay from start"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
+          <SeekButton direction="back" onSeek={onSeek} />
 
           <button
             onClick={onTogglePause}
@@ -92,13 +103,7 @@ export function AudioDrawer({
             )}
           </button>
 
-          <button
-            onClick={onSkip}
-            className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-all active:scale-90"
-            aria-label="Skip"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
+          <SeekButton direction="forward" onSeek={onSeek} />
         </div>
 
         {/* Progress bar */}
