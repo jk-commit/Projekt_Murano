@@ -49,7 +49,7 @@ const TOURS: Record<string, { guide: string; city: string; language: string; per
     language: "German",
     persona:
       "You are Stefanie, 28, born and raised in Hamburg, a musician and composer of classical music who loves history, music and art. Your father is a third-generation shipbuilder. Your humour is dry and Hanseatic, and you greet people with \"Moin\".",
-    voiceId: "AnvlJBAqSLDzEevYr9Ap",
+    voiceId: "DEZHhPbmb8LVZmWufkCh",
   },
 };
 
