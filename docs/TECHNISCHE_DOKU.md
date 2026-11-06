@@ -24,6 +24,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | `kitzingen` | Kitzingen Altstadt (ausgeblendet, Audio fehlt) | 5 | Deutsch | Stefanie |
 | `umea` | Umeå City Tour | 7 | Englisch, Deutsch | Elin |
 | `stavanger` | Stavanger Stadtführung | 9 | Deutsch | Håkon |
+| `hamburg` | Hamburg Stadtführung | 6 | Deutsch | Stefanie |
 
 **Wichtig: GPS löst noch keine Stationen aus.** Der Fortschritt läuft über „Next Stop“, den Zurück-Button und Sprünge über die Karte. Die Startseite verspricht „GPS-guided“, das ist aber noch nicht umgesetzt. Der echte Standort wird auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“), und in der Tour als blauer Punkt auf der Karte angezeigt.
 
@@ -68,7 +69,7 @@ src/
   lib/supabase.ts         Supabase-Client, liest VITE_SUPABASE_URL / _ANON_KEY
   tours/
     types.ts              Datenmodell Tour / Stop
-    zurich.ts, kitzingen.ts, umea.ts, stavanger.ts   Tourdaten (reine Daten)
+    zurich.ts, kitzingen.ts, umea.ts, stavanger.ts, hamburg.ts   Tourdaten (reine Daten)
     index.ts              Registry: tours[], getTour(id), poiStops(tour)
   hooks/
     useTourEngine.ts      Tour-Ablauf (Intro, Next Stop, Zurück, Sprünge, Timer-Trigger, Abschluss)
@@ -146,7 +147,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
 - **Endpoint:** `POST {SUPABASE_URL}/functions/v1/ask-marco`
 - **Request:** `multipart/form-data` mit den Feldern
   - `audio`: Aufnahme als webm, max. 10 MB
-  - `tourId`: `zurich` | `kitzingen` | `umea` | `stavanger`
+  - `tourId`: `zurich` | `kitzingen` | `umea` | `stavanger` | `hamburg`
   - `poiLabel`: der aktuelle Ort, max. 80 Zeichen
   - `language` (optional): `en` | `de`, die Antwortsprache. Fehlt das Feld oder ist der Wert unbekannt, gilt die Sprache aus `TOURS`.
 - **Stimme:** Eine Tour kann in `TOURS` eine eigene `voiceId` haben (Umeå: Elins Stimme aus den Touraufnahmen). Kennt der ElevenLabs-Account hinter `ELEVENLABS_API_KEY` diese Stimme nicht, antwortet die Function mit `ELEVENLABS_VOICE_ID` und schreibt „Tour voice failed“ ins Log.
@@ -203,6 +204,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Zürich (inkl. Guide-Vorstellung): `public/audio/Zuerich`
   - Umeå: `public/audio/Umea` (Englisch), `public/audio/Umea/de` (Deutsch)
   - Stavanger: `public/audio/Stavanger/de` (nur Deutsch)
+  - Hamburg: `public/audio/Hamburg/de` (nur Deutsch)
 
   Ablage für neue Städte: `public/audio/<Stadt>/<sprache>/NN_StopN_Name.mp3` (ASCII, keine Leerzeichen). Unter `public/audio/` liegen nur die MP3s; die Sprechtexte stehen unverändert als `.txt` mit gleichem Namen in `scripts/<Stadt>/<sprache>/`. Erzeugt wird das Audio pro Stadt mit `scripts/generate-<stadt>-audio.mjs` (`npm run audio:<stadt>`). Jede neue Stadt entsteht auf einem eigenen Branch `feature/<stadt>-tour` und kommt per Pull Request nach `main`.
 
@@ -212,6 +214,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Das Umeå-Bild wird von Pexels per Hotlink geladen.
   - Bildnachweis Kitzingen: „© Tilman2007 / CC BY-SA 4.0“.
   - Stavanger (`/Stavanger.jpg`, „Gamle Stavanger 13“ von Wikimedia Commons): „© Maarten Heerlien / CC BY 2.0“.
+  - Hamburg (`/Hamburg.jpg`, „Hamburg, Elbphilharmonie -- 2023 -- 6565“ von Wikimedia Commons): „© Dietmar Rabich / CC BY-SA 4.0“.
 - **Tourinhalte** (Texte, Koordinaten, Audio-URLs) stehen als TypeScript im Code. Jede inhaltliche Änderung braucht deshalb ein neues Deployment, ein CMS gibt es nicht.
 
 ---
