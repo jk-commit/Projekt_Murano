@@ -1,7 +1,9 @@
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { LocateFixed } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { LatLng, Tour } from "../tours";
+import type { UserLocation } from "../hooks/useUserLocation";
+import type { LatLng, Stop, Tour } from "../tours";
 import { ORANGE } from "../theme";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -11,13 +13,28 @@ type Coord = [number, number];
 
 interface TourMapProps {
   tour: Tour;
-  userPosition: LatLng;
+  /** The tour's current place: the map centers on it and the route starts there. */
+  focusPosition: LatLng;
+  currentStopId: string | null;
+  /** The device's real position, shown as the blue dot. */
+  location: UserLocation;
+  /** Called with the tapped stop, or null when the map itself is tapped. */
+  onStopSelect: (stop: Stop | null) => void;
+  onToast: (message: string) => void;
 }
 
-function createMarkerElement(className: string, text?: string): HTMLElement {
+function createStopMarkerElement(stop: Stop): HTMLElement {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "waypoint-number-marker";
+  el.textContent = String(stop.markerNumber);
+  el.setAttribute("aria-label", `Stop ${stop.markerNumber}: ${stop.name}`);
+  return el;
+}
+
+function createUserMarkerElement(): HTMLElement {
   const el = document.createElement("div");
-  el.className = className;
-  if (text) el.textContent = text;
+  el.className = "user-location-marker";
   return el;
 }
 
@@ -50,19 +67,47 @@ function remainingRoute(route: Coord[], position: LatLng): Coord[] {
   return route.slice(nearest);
 }
 
-export function TourMap({ tour, userPosition }: TourMapProps) {
+export function TourMap({ tour, focusPosition, currentStopId, location, onStopSelect, onToast }: TourMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const stopMarkersRef = useRef<Map<string, HTMLElement>>(new Map());
   const routeRef = useRef<Coord[]>([]);
-  const positionRef = useRef(userPosition);
+  const focusRef = useRef(focusPosition);
+  const currentStopIdRef = useRef(currentStopId);
+  const userPositionRef = useRef(location.position);
+  const onStopSelectRef = useRef(onStopSelect);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  positionRef.current = userPosition;
+  focusRef.current = focusPosition;
+  currentStopIdRef.current = currentStopId;
+  userPositionRef.current = location.position;
+  onStopSelectRef.current = onStopSelect;
 
   const showRoute = (map: mapboxgl.Map) => {
     const source = map.getSource(ROUTE_SOURCE) as mapboxgl.GeoJSONSource | undefined;
-    source?.setData(lineFeature(remainingRoute(routeRef.current, positionRef.current)));
+    source?.setData(lineFeature(remainingRoute(routeRef.current, focusRef.current)));
+  };
+
+  const showUserLocation = (map: mapboxgl.Map) => {
+    const position = userPositionRef.current;
+    if (!position) {
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+      return;
+    }
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new mapboxgl.Marker({ element: createUserMarkerElement() })
+        .setLngLat([position.lng, position.lat])
+        .addTo(map);
+    }
+    userMarkerRef.current.setLngLat([position.lng, position.lat]);
+  };
+
+  const highlightCurrentStop = () => {
+    stopMarkersRef.current.forEach((el, stopId) => {
+      el.classList.toggle("is-current", stopId === currentStopIdRef.current);
+    });
   };
 
   useEffect(() => {
@@ -94,6 +139,8 @@ export function TourMap({ tour, userPosition }: TourMapProps) {
       console.error("Mapbox error:", msg);
       setMapError(`Map error: ${msg}`);
     });
+
+    map.on("click", () => onStopSelectRef.current(null));
 
     map.on("load", () => {
       if (cancelled) return;
@@ -131,31 +178,53 @@ export function TourMap({ tour, userPosition }: TourMapProps) {
 
       tour.stops.forEach((s) => {
         if (s.type !== "poi" || s.markerNumber == null || !s.position) return;
-        new mapboxgl.Marker({ element: createMarkerElement("waypoint-number-marker", String(s.markerNumber)) })
-          .setLngLat([s.position.lng, s.position.lat])
-          .addTo(map);
+        const el = createStopMarkerElement(s);
+        el.addEventListener("click", (e) => {
+          // Otherwise the map sees this tap too, and its click handler would close the selection.
+          e.stopPropagation();
+          onStopSelectRef.current(s);
+        });
+        stopMarkersRef.current.set(s.id, el);
+        new mapboxgl.Marker({ element: el }).setLngLat([s.position.lng, s.position.lat]).addTo(map);
       });
+      highlightCurrentStop();
 
-      userMarkerRef.current = new mapboxgl.Marker({ element: createMarkerElement("user-location-marker") })
-        .setLngLat([positionRef.current.lng, positionRef.current.lat])
-        .addTo(map);
+      showUserLocation(map);
     });
 
+    const stopMarkers = stopMarkersRef.current;
     return () => {
       cancelled = true;
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
+      stopMarkers.clear();
     };
   }, [tour]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !userMarkerRef.current) return;
-    userMarkerRef.current.setLngLat([userPosition.lng, userPosition.lat]);
-    map.easeTo({ center: [userPosition.lng, userPosition.lat], duration: 1000 });
+    if (!map) return;
+    map.easeTo({ center: [focusPosition.lng, focusPosition.lat], duration: 1000 });
     showRoute(map);
-  }, [userPosition]);
+  }, [focusPosition]);
+
+  // Only moves the dot, not the map: the view must not jump while someone is looking around.
+  useEffect(() => {
+    if (mapRef.current) showUserLocation(mapRef.current);
+  }, [location.position]);
+
+  useEffect(highlightCurrentStop, [currentStopId]);
+
+  const centerOnUser = () => {
+    if (location.status === "blocked") {
+      onToast("Location is blocked. Allow it in your browser settings.");
+    } else if (!location.position) {
+      onToast("Looking for your location…");
+    } else {
+      mapRef.current?.easeTo({ center: [location.position.lng, location.position.lat], duration: 1000 });
+    }
+  };
 
   if (mapError) {
     return (
@@ -168,5 +237,17 @@ export function TourMap({ tour, userPosition }: TourMapProps) {
     );
   }
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full" />
+      <button
+        type="button"
+        onClick={centerOnUser}
+        className="absolute top-3 right-3 z-10 w-11 h-11 flex items-center justify-center bg-white text-gray-700 rounded-full shadow-lg transition-all hover:bg-gray-50 active:scale-90"
+        aria-label="Center on my location"
+      >
+        <LocateFixed className="w-5 h-5" />
+      </button>
+    </div>
+  );
 }

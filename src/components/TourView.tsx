@@ -1,11 +1,14 @@
-import type { Tour } from "../tours";
+import { useState } from "react";
+import type { Stop, Tour } from "../tours";
 import { useToast } from "../hooks/useToast";
 import { useTourEngine } from "../hooks/useTourEngine";
+import { useUserLocation } from "../hooks/useUserLocation";
 import { TourTopBar } from "./TourTopBar";
 import { TourMap } from "./TourMap";
 import { Toast } from "./Toast";
 import { AudioDrawer } from "./AudioDrawer";
-import { NextStopButton } from "./NextStopButton";
+import { StopNavigation } from "./StopNavigation";
+import { StopDetailSheet } from "./StopDetailSheet";
 import { AskGuide } from "./AskGuide";
 import { TourCompleteOverlay } from "./TourCompleteOverlay";
 
@@ -18,6 +21,8 @@ interface TourViewProps {
 export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
   const { message, showToast } = useToast();
   const engine = useTourEngine(tour, showToast);
+  const location = useUserLocation();
+  const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
   const { state: audioState, playbackRate, setPlaybackRate, togglePause, skipCurrent, replayCurrent } = engine.audio;
   const drawerVisible = audioState.isPlaying || audioState.totalTracks > 0;
 
@@ -33,7 +38,14 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
       <Toast message={message} />
 
       <div className="absolute inset-0 top-14">
-        <TourMap tour={tour} userPosition={engine.userPosition} />
+        <TourMap
+          tour={tour}
+          focusPosition={engine.focusPosition}
+          currentStopId={engine.currentStopId}
+          location={location}
+          onStopSelect={setSelectedStop}
+          onToast={showToast}
+        />
       </div>
 
       <AudioDrawer
@@ -46,8 +58,15 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
         hint={engine.walkHint}
       />
 
-      {engine.nextStop && (
-        <NextStopButton label={engine.nextStop.name} raised={drawerVisible} onClick={engine.next} />
+      {/* Hidden while the sheet is open, which would otherwise cut it in half. */}
+      {!selectedStop && (
+        <StopNavigation
+          nextLabel={engine.nextStop?.name ?? null}
+          previousLabel={engine.previousLabel}
+          raised={drawerVisible}
+          onNext={engine.next}
+          onPrevious={engine.previous}
+        />
       )}
 
       {tour.guide.askEnabled && (
@@ -60,6 +79,18 @@ export function TourView({ tour, onBack, onBackToHome }: TourViewProps) {
           isAudioPlaying={audioState.isPlaying}
           onToggleAudio={togglePause}
           onToast={showToast}
+        />
+      )}
+
+      {selectedStop && !engine.tourComplete && (
+        <StopDetailSheet
+          stop={selectedStop}
+          isCurrent={selectedStop.id === engine.currentStopId}
+          onJump={() => {
+            engine.jumpTo(selectedStop.id);
+            setSelectedStop(null);
+          }}
+          onClose={() => setSelectedStop(null)}
         />
       )}
 

@@ -25,7 +25,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | `umea` | Umeå City Tour | 7 | Englisch, Deutsch | Elin |
 | `stavanger` | Stavanger Stadtführung | 9 | Deutsch | Håkon |
 
-**Wichtig: Es gibt noch kein echtes GPS-Tracking.** Der Fortschritt läuft über den Button „Next Stop“, der den Nutzer simuliert zum nächsten Punkt bewegt. Die Startseite verspricht „GPS-guided“ und bittet um Standortfreigabe, das ist aber noch nicht umgesetzt. Der Standort wird nur auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“).
+**Wichtig: GPS löst noch keine Stationen aus.** Der Fortschritt läuft über „Next Stop“, den Zurück-Button und Sprünge über die Karte. Die Startseite verspricht „GPS-guided“, das ist aber noch nicht umgesetzt. Der echte Standort wird auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“), und in der Tour als blauer Punkt auf der Karte angezeigt.
 
 ---
 
@@ -71,7 +71,8 @@ src/
     zurich.ts, kitzingen.ts, umea.ts, stavanger.ts   Tourdaten (reine Daten)
     index.ts              Registry: tours[], getTour(id), poiStops(tour)
   hooks/
-    useTourEngine.ts      Tour-Ablauf (Intro, Next Stop, Timer-Trigger, Abschluss)
+    useTourEngine.ts      Tour-Ablauf (Intro, Next Stop, Zurück, Sprünge, Timer-Trigger, Abschluss)
+    useUserLocation.ts    Echter Standort des Geräts während der Tour
     useAudioPlayer.ts     Playlist-Player (3 s Pause zwischen Tracks)
     useAuth.ts            Session + Passwort-Recovery-Status
     useToast.ts
@@ -79,8 +80,9 @@ src/
     LandingPage, TourCard             Tourübersicht, Suche, „Near you!“
     TourStartScreen                   Tour-Detail + Guide-Vorstellung
     TourView                          Tour-Layout, setzt alles zusammen
-    TourMap                           Mapbox-Karte, Marker, verbleibende Route
-    TourTopBar, AudioDrawer, NextStopButton, Toast, TourCompleteOverlay
+    TourMap                           Mapbox-Karte, Marker, eigener Standort, verbleibende Route
+    StopDetailSheet                   Station von der Karte: Name, Maps-Links, Springen
+    TourTopBar, AudioDrawer, StopNavigation, Toast, TourCompleteOverlay
     AskGuide                          Mikrofon → Edge Function → Wiedergabe
     AuthScreen                        Anmelden / Registrieren / Passwort
     AboutModal, MissionModal
@@ -110,12 +112,14 @@ Touren sind reine Daten. Die gesamte Logik steckt in einer gemeinsamen Engine. K
 ### 3.3 Tour-Ablauf (`useTourEngine`)
 
 1. Beim Öffnen der Tour spielt das Intro. Der Schritt steht auf −1.
-2. „Next Stop“ geht einen Schritt weiter, setzt die Position (falls vorhanden) und spielt das Audio des Stopps. Liegt als Nächstes ein POI, kommt ein Toast: „You're getting close to …“.
-3. Timer-Stopps werden beim Durchklicken nur übersprungen. Ihr Timer startet, wenn das Audio des Bezugsstopps endet.
-4. Die Tour ist abgeschlossen, wenn der letzte POI ausgelöst ist und kein Audio mehr läuft. Dann erscheint das Overlay mit Teilen-Button und Sternebewertung.
-5. Beim Verlassen der Tour werden Audio und Timer gestoppt.
+2. „Next Stop“ geht einen Schritt weiter und spielt das Audio des Stopps. Liegt als Nächstes ein POI, kommt ein Toast: „You're getting close to …“.
+3. Der Zurück-Button führt zum vorherigen POI (Walk-Stopps werden übersprungen) oder, falls es keinen gibt und das Intro Audio hat, zum Intro. Der verlassene POI zählt danach nicht mehr als besucht.
+4. Ein Tipp auf einen Marker zeigt Name und Google-/Apple-Maps-Link und erlaubt den Sprung zu dieser Station. Der Fortschritt zählt besuchte POIs, ein Sprung über mehrere Stationen zählt also nur eine.
+5. Timer-Stopps werden beim Durchklicken nur übersprungen. Ihr Timer startet, wenn das Audio des Bezugsstopps endet. Zurück und Sprünge verwerfen laufende Timer; Stopps ab dem Ziel können danach neu ausgelöst werden.
+6. Die Tour ist abgeschlossen, wenn der letzte POI die aktive Station ist und kein Audio mehr läuft. Dann erscheint das Overlay mit Teilen-Button und Sternebewertung.
+7. Beim Verlassen der Tour werden Audio und Timer gestoppt.
 
-Die Karte zeigt die Route als Fußweg über die Mapbox Directions API. Wenn diese nicht antwortet, zeigt sie gerade Linien. Angezeigt wird jeweils nur der Teil der Route, der noch vor dem Nutzer liegt.
+Die Karte zeigt die Route als Fußweg über die Mapbox Directions API. Wenn diese nicht antwortet, zeigt sie gerade Linien. Angezeigt wird jeweils nur der Teil der Route ab der aktuellen Station. Karte und Route folgen der Station, nicht dem GPS: Der blaue Punkt zeigt den echten Standort (Abfrage beim Tourstart, nur über HTTPS oder localhost), bewegt die Karte aber nur über den Button zum Zentrieren.
 
 ---
 
@@ -239,7 +243,7 @@ Die Vorlage liegt in `.env.example`. `.env.local` ist per gitignore ausgeschloss
 
 | Thema | Ist-Zustand | Auswirkung |
 |---|---|---|
-| GPS / Geofencing | Fortschritt nur über „Next Stop“ | Das Kernversprechen „GPS-guided“ ist noch nicht erfüllt. Ein Feld für den Geofence-Radius war in den alten Kitzingen- und Umeå-Daten vorhanden, wurde aber nie genutzt. |
+| GPS / Geofencing | Der Standort wird angezeigt, der Fortschritt läuft aber nur über die Buttons und die Karte | Das Kernversprechen „GPS-guided“ ist noch nicht erfüllt. Ein Feld für den Geofence-Radius war in den alten Kitzingen- und Umeå-Daten vorhanden, wurde aber nie genutzt. |
 | Nutzerdaten | Bewertung, Tourfortschritt und abgeschlossene Touren werden nicht gespeichert | Es gibt keine Analytics, keinen Fortsetzen-Modus und kein Feedback |
 | Inhalte im Code | Touren sind TS-Dateien | Redakteure können ohne Entwickler nichts ändern |
 | Audio-Hosting | MP3s im App-Repo (`public/audio/`) | Das Repo wird groß; mittelfristig eher Supabase Storage oder ein CDN |

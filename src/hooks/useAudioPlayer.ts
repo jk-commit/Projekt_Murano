@@ -48,6 +48,7 @@ export function useAudioPlayer() {
   const trackIndexRef = useRef(0);
   const isPausedRef = useRef(false);
   const activeRef = useRef(false);
+  const trackGapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearState = useCallback(() => {
     activeRef.current = false;
@@ -61,6 +62,8 @@ export function useAudioPlayer() {
   }, []);
 
   const stopAudio = useCallback(() => {
+    // A pending next track must not start in whatever plays after this.
+    if (trackGapTimerRef.current) clearTimeout(trackGapTimerRef.current);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.removeAttribute("src");
@@ -103,7 +106,7 @@ export function useAudioPlayer() {
             currentTrackIndex: nextIndex,
             progress: 0,
           }));
-          setTimeout(() => {
+          trackGapTimerRef.current = setTimeout(() => {
             if (activeRef.current && !isPausedRef.current) {
               playTrackAtIndex(nextIndex);
             }
@@ -115,6 +118,8 @@ export function useAudioPlayer() {
       });
 
       audio.play().catch((err) => {
+        // Switching stops interrupts a track still starting; that must not stop the new one.
+        if (audioRef.current !== audio) return;
         console.error(`Audio playback failed: ${url}`, err);
         stopAudio();
         clearState();
