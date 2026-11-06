@@ -55,8 +55,13 @@ html, body, #root {
   background-color: #FF5A1F;
   border: 3px solid #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  cursor: default;
+  cursor: pointer;
   pointer-events: auto;
+}
+
+/* A ring, not a scale: Mapbox positions markers through their transform. */
+.waypoint-number-marker.is-current {
+  box-shadow: 0 0 0 5px rgba(255, 90, 31, 0.35), 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .user-location-marker {
