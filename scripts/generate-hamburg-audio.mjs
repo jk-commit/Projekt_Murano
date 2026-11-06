@@ -3,28 +3,32 @@
 // Existing files are skipped so credits are not spent twice. --force regenerates them;
 // add file names to regenerate only those, e.g. `npm run audio:hamburg -- --force 06_Stop3_StNikolai.mp3`.
 //
-// The spoken texts are scripts/Hamburg/de/<name>.txt (script v3): numbers are spelled out and foreign names
-// already written phonetically (Herzog und de Möhrong, Dschordsch Gilbert Skott, Hafen-Sitti, Unesko, Elfi).
+// The spoken texts are scripts/Hamburg/de/<name>.txt (script v4): numbers are spelled out and foreign names
+// already written phonetically (Herzog und de Möhrong, Dschordsch Gilbert Skott, Hafen-Sitti, Unesko, Elfi, Ha-Fau-Fau).
 // 00_Meet_Stefanie is the guide intro on the tour's start screen, 01_Intro plays when the tour opens.
 //
 // Each paragraph is its own request, stitched to the previous ones (previousRequestIds, nextText) so tempo
 // and mood stay constant, and the parts are joined into one MP3 per stop with a short pause between paragraphs.
 //
-// Voice: "Ava - Youthful, Authentic and Friendly" from the ElevenLabs Voice Library, chosen on 06.11.2026
-// from four samples of the intro and stop 3.
+// Voice: "Anna - Excited & Journalistic" from the ElevenLabs Voice Library, chosen on 06.11.2026 for script v4
+// (replacing Ava) from four samples of the intro and stop 3.
 
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 
 const TEXT_DIR = new URL("./Hamburg/de/", import.meta.url);
 const AUDIO_DIR = new URL("../public/audio/Hamburg/de/", import.meta.url);
-const VOICE_ID = "AnvlJBAqSLDzEevYr9Ap"; // "Ava - Youthful, Authentic and Friendly"
+const VOICE_ID = "DEZHhPbmb8LVZmWufkCh"; // "Anna - Excited & Journalistic"
 const MODEL_ID = "eleven_multilingual_v2";
 const VOICE_SETTINGS = { stability: 0.45, similarityBoost: 0.8, style: 0.15, speed: 1, useSpeakerBoost: true };
 const PARAGRAPH_PAUSE_SECONDS = 0.6;
 
-// Words the voice still mispronounces, replaced only on the way to ElevenLabs. Empty until tested.
-const PRONUNCIATION = [];
+// Words the voice still mispronounces, replaced only on the way to ElevenLabs. Checked by transcribing the
+// generated MP3s with ElevenLabs speech-to-text.
+const PRONUNCIATION = [
+  ["Katharinen", "Katharienen"], // the list of Hauptkirchen came out as "Katharin" ... "Michaeli"
+  ["Jacobi und Michaelis", "Jacobi, und Michaelis"],
+];
 
 const args = process.argv.slice(2);
 const force = args.includes("--force");

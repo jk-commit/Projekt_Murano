@@ -24,7 +24,7 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | `kitzingen` | Kitzingen Altstadt (ausgeblendet, Audio fehlt) | 5 | Deutsch | Stefanie |
 | `umea` | Umeå City Tour | 7 | Englisch, Deutsch | Elin |
 | `stavanger` | Stavanger Stadtführung | 9 | Deutsch | Håkon |
-| `hamburg` | Hamburg Stadtführung | 6 | Deutsch | Stefanie |
+| `hamburg` | Hamburg Stadtführung | 9 | Deutsch | Stefanie |
 
 **Wichtig: GPS löst noch keine Stationen aus.** Der Fortschritt läuft über „Next Stop“, den Zurück-Button und Sprünge über die Karte. Die Startseite verspricht „GPS-guided“, das ist aber noch nicht umgesetzt. Der echte Standort wird auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“), und in der Tour als blauer Punkt auf der Karte angezeigt.
 
