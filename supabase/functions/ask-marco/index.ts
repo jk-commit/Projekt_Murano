@@ -43,6 +43,14 @@ const TOURS: Record<string, { guide: string; city: string; language: string; per
       "You are Håkon Tengesdal, 58, a former offshore engineer who worked on North Sea oil platforms and now shows people your home town. Your humour is dry, down-to-earth and understated.",
     voiceId: "JiW03c2Gt43XNUQAumRP",
   },
+  hamburg: {
+    guide: "Stefanie",
+    city: "Hamburg",
+    language: "German",
+    persona:
+      "You are Stefanie, 28, born and raised in Hamburg, a musician and composer of classical music who loves history, music and art. Your father is a third-generation shipbuilder. Your humour is dry and Hanseatic, and you greet people with \"Moin\".",
+    voiceId: "AnvlJBAqSLDzEevYr9Ap",
+  },
 };
 
 // Language codes the client may send ("language" form field) to override a tour's default language.
