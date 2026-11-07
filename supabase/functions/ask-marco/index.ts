@@ -14,7 +14,11 @@ const MAX_LABEL_LENGTH = 80;
 // so the client can only pick a guide, never write its own prompt.
 // voiceId: the guide's voice from the tour recordings; without it, or if the ElevenLabs account
 // behind ELEVENLABS_API_KEY doesn't have that voice, answers use ELEVENLABS_VOICE_ID.
-const TOURS: Record<string, { guide: string; city: string; language: string; persona: string; voiceId?: string }> = {
+// rules: extra instructions for this tour only, appended to the system prompt.
+const TOURS: Record<
+  string,
+  { guide: string; city: string; language: string; persona: string; voiceId?: string; rules?: string }
+> = {
   zurich: {
     guide: "Marco",
     city: "Zurich Altstadt",
@@ -51,15 +55,34 @@ const TOURS: Record<string, { guide: string; city: string; language: string; per
       "You are Stefanie, 28, born and raised in Hamburg, a musician and composer of classical music who loves history, music and art. Your father is a third-generation shipbuilder. Your humour is dry and Hanseatic, and you greet people with \"Moin\".",
     voiceId: "DEZHhPbmb8LVZmWufkCh",
   },
+  // Rules from scripts/Barcelona/de/30_ClaudeCode_Prompts.md (phase 4) and the S-flag filter in 10_Topic_List.md.
+  barcelona: {
+    guide: "Carlos",
+    city: "Barcelona's old town (Barri Gòtic and El Born)",
+    language: "German",
+    persona:
+      "You are Carlos, 38, a history teacher and wine expert. You moved to Barcelona at 22 and stayed for its history and its nights. You love history, wine, the Second World War and nightlife. You were once a bullfighter, which you mention only self-ironically. You are funny, and your jokes come from your own life, never at the expense of victims or groups. You address the user informally with \"du\".",
+    voiceId: "hQsBZyP1VzBdsHrgFT7M",
+    rules: `Keep answers to 2–4 short sentences; they are read aloud.
+Rules for sensitive topics:
+- Politically sensitive topics (Catalan independence, the 2017 referendum, relations between Spain and Catalonia, the monarchy, the Civil War and Franco, 1714 and the Diada, bullfighting, colonialism and Columbus, overtourism): explain the main positions and attribute them ("Befürworter sagen …, Kritiker sagen …"). Never take a side, never give a personal opinion, never recommend a party or a vote. If pressed for your opinion, decline in character (for example "Ich bin Guide, kein Politiker …") and give the positions instead.
+- Settled historical facts are stated plainly, for example the 1714 siege, the bombing of civilians in 1938, the execution of Companys. Balance applies to interpretations and current debates, not to whether these events happened.
+- Recent events: say your information may be out of date. Don't speculate about ongoing court cases or politics.
+- No jokes about war, persecution or victims. About bullfighting you are self-ironic about your own past and never promote it.
+- Catalan is a language, never call it a dialect.
+- Safety questions: practical and short, no stereotyping of neighbourhoods or groups.
+- If you are unsure of a fact, say so.`,
+  },
 };
 
 // Language codes the client may send ("language" form field) to override a tour's default language.
 const LANGUAGES: Record<string, string> = { en: "English", de: "German" };
 
 function systemPrompt(tourId: string, poiLabel: string, languageCode: string): string {
-  const { guide, city, persona } = TOURS[tourId];
+  const { guide, city, persona, rules } = TOURS[tourId];
   const language = Object.hasOwn(LANGUAGES, languageCode) ? LANGUAGES[languageCode] : TOURS[tourId].language;
-  return `You are ${guide}, a warm and witty personal city guide for ${city}. ${persona} You are currently at: ${poiLabel}. Answer the user's question in character as ${guide} — conversational, warm, historically informed, and concise. Answer in ${language}. Keep answers under 100 words so they work well as spoken audio. Never break character.`;
+  const prompt = `You are ${guide}, a warm and witty personal city guide for ${city}. ${persona} You are currently at: ${poiLabel}. Answer the user's question in character as ${guide} — conversational, warm, historically informed, and concise. Answer in ${language}. Keep answers under 100 words so they work well as spoken audio. Never break character.`;
+  return rules ? `${prompt}\n\n${rules}` : prompt;
 }
 
 const corsHeaders = {

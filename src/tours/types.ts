@@ -39,6 +39,8 @@ export interface Tour {
   center: LatLng;
   intro: { label: string; audio: string[] };
   guide: { name: string; introAudio: string; askEnabled: boolean };
+  /** Pause between the tracks of one stop; default 3 s. Shorter for tours whose tracks are pieces of one text. */
+  trackGapSeconds?: number;
   stops: Stop[];
   /** "You've explored …" on the tour-complete screen. */
   completeText: string;
