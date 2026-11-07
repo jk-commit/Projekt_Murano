@@ -1,32 +1,34 @@
-// Turns the Barcelona markdown in scripts/Barcelona/de/ into src/tours/barcelona/content.ts.
-// Run: npm run content:barcelona
+// Turns a scripted tour's markdown (scripts/<Folder>/<lang>/) into src/tours/<dir>/content.ts.
+// Run: npm run content:<tour>   (= node scripts/parse-tour-content.mjs <tour id>; tours in scripted-tours.mjs)
 //
 // The markdown is the single source for the fixed tour now and the dynamic tour later; never edit
-// content.ts by hand. The parser fails loudly when a file breaks the format (see README "Wie ein
-// POI-Skript aufgebaut ist") or when the files disagree with each other: topic tags vs. blocks, the
-// JSON in 00_README.md vs. the POI files, topic ids vs. 10_Topic_List.md, bridge table vs. bridge texts.
+// content.ts by hand. The parser fails loudly when a file breaks the format (see the Barcelona README
+// "Wie ein POI-Skript aufgebaut ist") or when the files disagree with each other: topic tags vs. blocks,
+// the JSON in 00_README.md vs. the POI files, topic ids vs. 10_Topic_List.md, bridge table vs. bridge texts.
 //
-// Spoken text is taken exactly as written (Catalan names are already respelled for TTS). Lines in
-// *italics* are notes for the app and are not spoken.
+// The structural labels are German in every tour (Koordinaten, Führt ein, ANFAHRT, KERN …); a few phrases
+// are accepted in English too ("fixed text", "any … or …", "Theme groups"). Spoken text is taken exactly as
+// written (names are already respelled for TTS). Lines in *italics* are notes for the app and are not spoken.
 
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { scriptedTour } from "./scripted-tours.mjs";
 
-const SRC_DIR = new URL("./Barcelona/de/", import.meta.url);
-const OUT_FILE = new URL("../src/tours/barcelona/content.ts", import.meta.url);
-const AUDIO_BASE = "/audio/Barcelona/de";
-
-// Differences between the README JSON and the POI files that are known and accepted for now.
-// Fix them in the markdown, then remove the entry here — an entry that no longer matches is an error too.
-const KNOWN_README_DIFFERENCES = [
-  { poi: "P01", field: "flags", why: "Table has V (Brossa letters, frieze date), README JSON has no flag" },
-];
+const tour = scriptedTour(process.argv[2]);
+const SRC_DIR = tour.srcDir;
+const AUDIO_BASE = tour.audioBase;
+const SOURCE = `scripts/${tour.folder}/${tour.lang}`;
+const OUTPUT = `src/tours/${tour.dir}/content.ts`;
 
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
 const read = (name) => readFileSync(new URL(name, SRC_DIR), "utf8").replace(/\r\n/g, "\n");
 
-const TOPIC_ID = /\b(?:[A-Z]{3}|C20)-\d{2}\b/g;
+// ANT-02, C20-05, C19-01 …
+const ID = String.raw`(?:[A-Z]{3}|C\d{2})-\d{2}`;
+const TOPIC_ID = new RegExp(String.raw`\b${ID}\b`, "g");
 const topicIds = (s) => [...s.matchAll(TOPIC_ID)].map((m) => m[0]);
+// "SOC-08/09" means SOC-08 and SOC-09.
+const expandShorthand = (s) => s.replace(/\b((?:[A-Z]{3}|C\d{2})-)(\d{2})\/(\d{2})\b/g, "$1$2, $1$3");
 
 // --- Helpers -----------------------------------------------------------------------------------
 
@@ -84,7 +86,7 @@ const parseNumber = (s, where) => {
 
 const knownTopics = new Map();
 for (const line of read("10_Topic_List.md").split("\n")) {
-  const m = line.match(/^\|\s*((?:[A-Z]{3}|C20)-\d{2})\s*\|\s*([^|]+?)\s*\|/);
+  const m = line.match(new RegExp(String.raw`^\|\s*(${ID})\s*\|\s*([^|]+?)\s*\|`));
   if (m) knownTopics.set(m[1], m[2]);
 }
 if (knownTopics.size === 0) fail("10_Topic_List.md", "no topic ids found");
@@ -93,52 +95,54 @@ const checkTopic = (where, id) => {
 };
 
 // Every topic id anywhere in the scripts — tag rows, [[…]] block markers, filler headings, running text —
-// must be on the list. "SOC-08/09" counts as SOC-08 and SOC-09.
+// must be on the list.
 const scriptFiles = readdirSync(SRC_DIR).filter((f) => /^(P\d{2}_.*|01_.*|20_.*)\.md$/.test(f)).sort();
 let topicMentions = 0;
 for (const f of scriptFiles) {
-  const md = read(f).replace(/\b((?:[A-Z]{3}|C20)-)(\d{2})\/(\d{2})\b/g, "$1$2, $1$3");
-  md.split("\n").forEach((line, i) => {
-    for (const id of topicIds(line)) {
-      topicMentions++;
-      checkTopic(`${f}:${i + 1}`, id);
-    }
-  });
+  expandShorthand(read(f))
+    .split("\n")
+    .forEach((line, i) => {
+      for (const id of topicIds(line)) {
+        topicMentions++;
+        checkTopic(`${f}:${i + 1}`, id);
+      }
+    });
 }
 
 // --- Theme groups and bridges (20_Verbindungen.md) ----------------------------------------------
 
-const verbindungen = read("20_Verbindungen.md");
-const vSections = sections(verbindungen, 3);
-const groupSection = vSections.find((s) => s.heading.startsWith("Themengruppen"));
-const bridgeRuleSection = vSections.find((s) => s.heading.startsWith("Welche Brücke wann"));
+const vSections = sections(read("20_Verbindungen.md"), 3);
+const groupSection = vSections.find((s) => /^(Themengruppen|Theme groups)/.test(s.heading));
+const bridgeRuleSection = vSections.find((s) => /^(Welche Brücke wann|Which bridge when)/.test(s.heading));
+if (!groupSection) fail("20_Verbindungen.md", 'no "Themengruppen" / "Theme groups" section');
+if (!bridgeRuleSection) fail("20_Verbindungen.md", 'no "Welche Brücke wann" / "Which bridge when" section');
 
 const groups = {};
 const groupOfPoi = {};
 for (const [id, [label, pois]] of tableRows(groupSection?.body ?? "")) {
-  if (id === "Gruppe") continue;
+  if (id === "Gruppe" || id === "Group") continue;
   groups[id] = label;
   for (const poi of pois.split(",").map((p) => p.trim())) groupOfPoi[poi] = id;
 }
 
-/** "beliebig" | "ROM" | "MOD oder 1714" | "beliebig außer KRIEG/JUD" → { any, only, except } */
-function groupSet(s, where) {
+/** "beliebig"/"any" | "ROM" | "MOD oder 1714"/"MODERN or KIRCHE" | "beliebig außer KRIEG/JUD"/"any except …" */
+function groupSet(s) {
   s = s.trim();
-  const except = s.match(/^beliebig außer (.+)$/);
+  const except = s.match(/^(?:beliebig außer|any except) (.+)$/);
   if (except) return { except: except[1].split("/").map((g) => g.trim()) };
-  if (s === "beliebig") return {};
-  return { only: s.split(" oder ").map((g) => g.trim()) };
+  if (s === "beliebig" || s === "any") return {};
+  return { only: s.split(/ (?:oder|or) /).map((g) => g.trim()) };
 }
 
 const bridgeRules = [];
 for (const [id, [route]] of tableRows(bridgeRuleSection?.body ?? "")) {
-  if (id === "Brücke") continue;
+  if (id === "Brücke" || id === "Bridge") continue;
   const [from, to] = route.split("→");
   if (!to) {
     fail("20_Verbindungen.md", `bridge ${id}: cannot read route "${route}"`);
     continue;
   }
-  const rule = { id, from: groupSet(from, id), to: groupSet(to, id) };
+  const rule = { id, from: groupSet(from), to: groupSet(to) };
   for (const g of [...(rule.from.only ?? []), ...(rule.from.except ?? []), ...(rule.to.only ?? []), ...(rule.to.except ?? [])]) {
     if (!groups[g]) fail("20_Verbindungen.md", `bridge ${id} names unknown group ${g}`);
   }
@@ -158,12 +162,8 @@ for (const s of vSections) {
   } else {
     const title = rest.replace(/\s*\(.*\)\s*$/, "");
     const paren = rest.match(/\(([^)]*)\)\s*$/)?.[1] ?? "";
-    // "SOC-08/09" means SOC-08 and SOC-09.
-    const topics = paren
-      .replace(/\b((?:[A-Z]{3}|C20)-)(\d{2})\/(\d{2})\b/g, "$1$2, $1$3")
-      .match(TOPIC_ID) ?? [];
-    topics.forEach((t) => checkTopic(id, t));
-    const trigger = s.body.match(/Trigger:\s*([\d.]+),\s*([\d.]+).*?Radius\s*(\d+)\s*m/);
+    const topics = expandShorthand(paren).match(TOPIC_ID) ?? [];
+    const trigger = s.body.match(/Trigger:\s*([\d.]+),\s*([\d.]+).*?Radius\s*(\d+)\s*m/i);
     fillers.push({
       id,
       title,
@@ -186,38 +186,47 @@ for (const id of bridgeTexts.keys()) {
   if (!bridgeRules.some((r) => r.id === id)) fail("20_Verbindungen.md", `bridge ${id} has text but is not in the table`);
 }
 
-// --- Intro, outro and system texts ----------------------------------------------------------------
+// --- Intro, outro and system texts (01_<Guide>_Intro_und_Systemtexte.md) -------------------------
 
+const introFile = readdirSync(SRC_DIR).find((f) => /^01_.*\.md$/.test(f)) ?? "01_…_Intro_und_Systemtexte.md";
 const texts = {};
 for (const level of [2, 3]) {
-  for (const s of sections(read("01_Carlos_Intro_und_Systemtexte.md"), level)) {
-    // "🎙 MEET MARCO — Guide-Vorstellung (~25 s)" → MEET, "🎙 OUTRO (~30 s)" → OUTRO, "S-NAH — …" → S-NAH
+  let md = "";
+  try {
+    md = read(introFile);
+  } catch {
+    fail(SOURCE, `${introFile} is missing`);
+  }
+  for (const s of sections(md, level)) {
+    // "🎙 MEET PETER — guide intro (~25 s)" → MEET, "🎙 OUTRO (~30 s)" → OUTRO, "S-NAH — …" → S-NAH
     const m = s.heading.match(/^(?:🎙\s*)?([A-Z][A-Z-]*)\b/);
     if (!m || (level === 2 && !s.heading.startsWith("🎙")) || (level === 3 && !m[1].startsWith("S-"))) continue;
     const id = m[1];
     const body = level === 2 ? s.body.split(/\n### /)[0] : s.body;
     const paragraphs = spoken(body);
-    if (paragraphs.length === 0) fail("01_Carlos_Intro_und_Systemtexte.md", `${id} has no spoken text`);
-    if (texts[id]) fail("01_Carlos_Intro_und_Systemtexte.md", `${id} appears twice`);
+    if (paragraphs.length === 0) fail(introFile, `${id} has no spoken text`);
+    if (texts[id]) fail(introFile, `${id} appears twice`);
     texts[id] = clip(paragraphs, id);
   }
 }
-for (const id of ["MEET", "INTRO", "INTRO-WEIT", "OUTRO", "S-NAH", "S-STEHEN", "S-QA-HINWEIS", "S-SICHER-ALLG"]) {
-  if (!texts[id]) fail("01_Carlos_Intro_und_Systemtexte.md", `missing ${id}`);
+for (const id of tour.requiredTexts) {
+  if (!texts[id]) fail(introFile, `missing ${id}`);
 }
 
 // --- POIs -----------------------------------------------------------------------------------------
 
+const FIXED_TEXT = /fester Text|fixed text/i;
+
 function parseTopicField(cell, where) {
   if (/^[–-]$/.test(cell)) return { withBlock: [], fixedText: [] };
-  const allFixed = /alles fester Text/.test(cell);
+  const allFixed = /alles fester Text|all fixed text/i.test(cell);
   const withBlock = [];
   const fixedText = [];
   const matches = [...cell.matchAll(TOPIC_ID)];
   matches.forEach((m, i) => {
     checkTopic(where, m[0]);
     const own = cell.slice(m.index, matches[i + 1]?.index ?? cell.length);
-    (allFixed || /fester Text/.test(own) ? fixedText : withBlock).push(m[0]);
+    (allFixed || FIXED_TEXT.test(own) ? fixedText : withBlock).push(m[0]);
   });
   return { withBlock, fixedText };
 }
@@ -225,7 +234,8 @@ function parseTopicField(cell, where) {
 function parseFlags(cell) {
   const withoutNotes = cell.replace(/\([^)]*\)/g, "");
   const flags = [...new Set([...withoutNotes.matchAll(/(?<![\w-])\*{0,2}([SV])\*{0,2}(?![\w-])/g)].map((m) => m[1]))];
-  return { flags: flags.sort(), pickpockets: /Taschendiebe/.test(cell) };
+  // "Taschendiebe: S-SICHER-ALLG hier abspielen" (Barcelona), "Safety line S-SICHER plays here once" (Zurich)
+  return { flags: flags.sort(), safetyNote: /Taschendiebe|S-SICHER/.test(cell) };
 }
 
 /** Core text → ordered segments; a topic block becomes a full and/or a callback segment with one slot number. */
@@ -234,7 +244,8 @@ function parseCore(body, poiId) {
   const segments = [];
   let slot = 0;
   let fixed = [];
-  let block = null; // { topic, part: "full" | "callback", full: [], callback: [] }
+  let block = null; // { topic, part: "full" | "callback", full: [], callback: [], seen }
+  const markerPattern = new RegExp(String.raw`^\[\[(\/)?(${ID})(?: (FULL|CALLBACK))?\]\]$`);
 
   const flushFixed = () => {
     const paragraphs = spoken(fixed.join("\n"));
@@ -245,7 +256,7 @@ function parseCore(body, poiId) {
   };
 
   for (const line of body.split("\n")) {
-    const marker = line.trim().match(/^\[\[(\/)?((?:[A-Z]{3}|C20)-\d{2})(?: (FULL|CALLBACK))?\]\]$/);
+    const marker = line.trim().match(markerPattern);
     if (!marker) {
       if (line.includes("[[") || line.includes("]]")) fail(where, `unreadable marker: ${line.trim()}`);
       if (block) block[block.part].push(line);
@@ -293,77 +304,83 @@ function parseCore(body, poiId) {
 }
 
 const poiFiles = readdirSync(SRC_DIR).filter((f) => /^P\d{2}_.*\.md$/.test(f)).sort();
-const pois = poiFiles.map((file) => {
-  const md = read(file);
-  const title = md.match(/^# (P\d{2}) — (.+)$/m);
-  if (!title) {
-    fail(file, 'first line must be "# Pnn — Name"');
-    return null;
-  }
-  const [, id, name] = title;
-  const where = `${file}`;
-  const rows = tableRows(md.split(/\n## /)[0]);
-  const cell = (key) => {
-    const v = rows.get(key)?.[0];
-    if (v === undefined) fail(where, `table row "${key}" missing`);
-    return v ?? "";
-  };
+const pois = poiFiles
+  .map((file) => {
+    const md = read(file);
+    const title = md.match(/^# (P\d{2}) — (.+)$/m);
+    if (!title) {
+      fail(file, 'first line must be "# Pnn — Name"');
+      return null;
+    }
+    const [, id, name] = title;
+    const where = file;
+    const rows = tableRows(md.split(/\n## /)[0]);
+    const cell = (key) => {
+      const v = rows.get(key)?.[0];
+      if (v === undefined) fail(where, `table row "${key}" missing`);
+      return v ?? "";
+    };
 
-  if (cell("ID") !== id) fail(where, `table ID ${cell("ID")} does not match heading ${id}`);
-  const [lat, lng] = cell("Koordinaten").match(/^([\d.]+),\s*([\d.]+)/)?.slice(1) ?? [];
-  const radii = cell("Radius Kern / Anfahrt").match(/^(\d+) m \/ (\d+) m$/);
-  if (!radii) fail(where, `cannot read radii "${cell("Radius Kern / Anfahrt")}"`);
-  const introduces = parseTopicField(cell("Führt ein"), where);
-  const callbacksTag = parseTopicField(cell("Ruft zurück"), where);
-  const { flags, pickpockets } = parseFlags(cell("Flags"));
-  const nearby = [...cell("Nahe POIs").matchAll(/(P\d{2})[^(,]*\((\d+) m\)/g)].map((m) => ({ id: m[1], meters: Number(m[2]) }));
+    if (cell("ID") !== id) fail(where, `table ID ${cell("ID")} does not match heading ${id}`);
+    const [lat, lng] = cell("Koordinaten").match(/^([\d.]+),\s*([\d.]+)/)?.slice(1) ?? [];
+    const radii = cell("Radius Kern / Anfahrt").match(/^(\d+) m \/ (\d+) m$/);
+    if (!radii) fail(where, `cannot read radii "${cell("Radius Kern / Anfahrt")}"`);
+    const introduces = parseTopicField(cell("Führt ein"), where);
+    const callbacksTag = parseTopicField(cell("Ruft zurück"), where);
+    const { flags, safetyNote } = parseFlags(cell("Flags"));
+    const nearby = [...cell("Nahe POIs").matchAll(/(P\d{2})[^(,]*\((\d+) m[^)]*\)/g)].map((m) => ({
+      id: m[1],
+      meters: Number(m[2]),
+    }));
 
-  const s = sections(md, 2);
-  const section = (prefix) => s.find((x) => x.heading.includes(prefix));
-  const approachSection = section("ANFAHRT");
-  const checkSection = section("STANDORT-CHECK");
-  const coreSection = section("KERN");
-  if (!approachSection) fail(where, "ANFAHRT section missing");
-  if (!coreSection) fail(where, "KERN section missing");
+    const s = sections(md, 2);
+    const section = (prefix) => s.find((x) => x.heading.includes(prefix));
+    const approachSection = section("ANFAHRT");
+    const checkSection = section("STANDORT-CHECK");
+    const coreSection = section("KERN");
+    if (!approachSection) fail(where, "ANFAHRT section missing");
+    if (!coreSection) fail(where, "KERN section missing");
 
-  const core = coreSection ? parseCore(coreSection.body, id) : [];
+    const core = coreSection ? parseCore(coreSection.body, id) : [];
 
-  // Tags vs. blocks: "Führt ein" with a block ⇔ a FULL segment; callback-only blocks ⇔ "Ruft zurück".
-  const fullTopics = core.filter((x) => x.kind === "full").map((x) => x.topicId);
-  const callbackTopics = core.filter((x) => x.kind === "callback").map((x) => x.topicId);
-  const callbackOnly = callbackTopics.filter((t) => !fullTopics.includes(t));
-  const same = (a, b) => [...a].sort().join() === [...b].sort().join();
-  if (!same(fullTopics, introduces.withBlock)) {
-    fail(where, `"Führt ein" has blocks for [${introduces.withBlock}] but the text has FULL blocks for [${fullTopics}]`);
-  }
-  for (const t of fullTopics) {
-    if (!callbackTopics.includes(t)) fail(where, `${t} has FULL but no CALLBACK`);
-  }
-  for (const t of introduces.fixedText) {
-    if (callbackTopics.includes(t)) fail(where, `${t} is tagged "fester Text" but has a block`);
-  }
-  if (!same(callbackOnly, [...callbacksTag.withBlock, ...callbacksTag.fixedText])) {
-    fail(where, `"Ruft zurück" lists [${[...callbacksTag.withBlock, ...callbacksTag.fixedText]}] but the text has callback-only blocks for [${callbackOnly}]`);
-  }
-  if (!groupOfPoi[id]) fail(where, `${id} has no theme group in 20_Verbindungen.md`);
+    // Tags vs. blocks: "Führt ein" with a block ⇔ a FULL segment; callback-only blocks ⇔ "Ruft zurück".
+    const fullTopics = core.filter((x) => x.kind === "full").map((x) => x.topicId);
+    const callbackTopics = core.filter((x) => x.kind === "callback").map((x) => x.topicId);
+    const callbackOnly = callbackTopics.filter((t) => !fullTopics.includes(t));
+    const same = (a, b) => [...a].sort().join() === [...b].sort().join();
+    if (!same(fullTopics, introduces.withBlock)) {
+      fail(where, `"Führt ein" has blocks for [${introduces.withBlock}] but the text has FULL blocks for [${fullTopics}]`);
+    }
+    for (const t of fullTopics) {
+      if (!callbackTopics.includes(t)) fail(where, `${t} has FULL but no CALLBACK`);
+    }
+    for (const t of introduces.fixedText) {
+      if (callbackTopics.includes(t)) fail(where, `${t} is tagged as fixed text but has a block`);
+    }
+    const tagged = [...callbacksTag.withBlock, ...callbacksTag.fixedText];
+    if (!same(callbackOnly, tagged)) {
+      fail(where, `"Ruft zurück" lists [${tagged}] but the text has callback-only blocks for [${callbackOnly}]`);
+    }
+    if (!groupOfPoi[id]) fail(where, `${id} has no theme group in 20_Verbindungen.md`);
 
-  return {
-    id,
-    name,
-    group: groupOfPoi[id] ?? "",
-    position: { lat: parseNumber(lat, where), lng: parseNumber(lng, where) },
-    radius: Number(radii?.[1]),
-    approachRadius: Number(radii?.[2]),
-    introduces: [...introduces.withBlock, ...introduces.fixedText],
-    callbacks: callbackOnly,
-    flags,
-    pickpockets,
-    nearby,
-    approach: clip(spoken(approachSection?.body ?? ""), `${id}_approach`),
-    ...(checkSection && { locationCheck: clip(spoken(checkSection.body), `${id}_check`) }),
-    core,
-  };
-}).filter(Boolean);
+    return {
+      id,
+      name,
+      group: groupOfPoi[id] ?? "",
+      position: { lat: parseNumber(lat, where), lng: parseNumber(lng, where) },
+      radius: Number(radii?.[1]),
+      approachRadius: Number(radii?.[2]),
+      introduces: [...introduces.withBlock, ...introduces.fixedText],
+      callbacks: callbackOnly,
+      flags,
+      safetyNote,
+      nearby,
+      approach: clip(spoken(approachSection?.body ?? ""), `${id}_approach`),
+      ...(checkSection && { locationCheck: clip(spoken(checkSection.body), `${id}_check`) }),
+      core,
+    };
+  })
+  .filter(Boolean);
 
 for (const poi of pois) {
   for (const { id } of poi.nearby) if (!pois.some((p) => p.id === id)) fail(poi.id, `nearby POI ${id} does not exist`);
@@ -371,8 +388,7 @@ for (const poi of pois) {
 
 // --- README JSON vs. POI files --------------------------------------------------------------------
 
-const readme = read("00_README.md");
-const json = readme.match(/```json\n([\s\S]*?)```/)?.[1];
+const json = read("00_README.md").match(/```json\n([\s\S]*?)```/)?.[1];
 let readmePois = [];
 try {
   readmePois = JSON.parse(json).pois;
@@ -382,7 +398,7 @@ try {
 const usedKnownDifferences = new Set();
 const compare = (poiId, field, a, b) => {
   if (JSON.stringify(a) === JSON.stringify(b)) return;
-  const known = KNOWN_README_DIFFERENCES.find((d) => d.poi === poiId && d.field === field);
+  const known = tour.knownReadmeDifferences.find((d) => d.poi === poiId && d.field === field);
   if (known) usedKnownDifferences.add(known);
   else fail("00_README.md", `${poiId} ${field}: README JSON ${JSON.stringify(a)} ≠ POI file ${JSON.stringify(b)}`);
 };
@@ -398,36 +414,39 @@ for (const r of readmePois) {
   compare(r.id, "introduces", [...r.introduces].sort(), [...poi.introduces].sort());
   compare(r.id, "callbacks", [...r.callbacks].sort(), [...poi.callbacks].sort());
   compare(r.id, "flags", [...r.flags].sort(), poi.flags);
+  if (r.group !== undefined) compare(r.id, "group", r.group, poi.group);
 }
 for (const poi of pois) {
   if (!readmePois.some((r) => r.id === poi.id)) fail("00_README.md", `JSON is missing ${poi.id}`);
 }
-for (const d of KNOWN_README_DIFFERENCES) {
-  if (!usedKnownDifferences.has(d)) fail("parse-barcelona-content.mjs", `known difference ${d.poi} ${d.field} is fixed — remove it from KNOWN_README_DIFFERENCES`);
+for (const d of tour.knownReadmeDifferences) {
+  if (!usedKnownDifferences.has(d)) {
+    fail("scripted-tours.mjs", `known difference ${d.poi} ${d.field} is fixed — remove it from knownReadmeDifferences`);
+  }
 }
 
 // --- Output ---------------------------------------------------------------------------------------
 
 if (errors.length > 0) {
-  console.error(`Barcelona content has ${errors.length} problem(s):\n` + errors.map((e) => `  - ${e}`).join("\n"));
+  console.error(`${SOURCE} has ${errors.length} problem(s):\n` + errors.map((e) => `  - ${e}`).join("\n"));
   process.exit(1);
 }
 
 const content = { audioBase: AUDIO_BASE, groups, pois, bridges, fillers, texts };
-mkdirSync(new URL(".", OUT_FILE), { recursive: true });
+mkdirSync(new URL(".", tour.contentFile), { recursive: true });
 writeFileSync(
-  OUT_FILE,
-  `// GENERATED by scripts/parse-barcelona-content.mjs from scripts/Barcelona/de/*.md — do not edit by hand.
-// Change the markdown and run \`npm run content:barcelona\` instead.
-import type { BarcelonaContent } from "./types";
+  tour.contentFile,
+  `// GENERATED by scripts/parse-tour-content.mjs from ${SOURCE}/*.md — do not edit by hand.
+// Change the markdown and run \`npm run content:${tour.id}\` instead.
+import type { ScriptedTourContent } from "../scripted/types";
 
-export const barcelonaContent: BarcelonaContent = ${JSON.stringify(content, null, 2)};
+export const ${tour.exportName}: ScriptedTourContent = ${JSON.stringify(content, null, 2)};
 `,
 );
 
 const segments = pois.reduce((n, p) => n + p.core.length + 1 + (p.locationCheck ? 1 : 0), 0);
 console.log(
-  `wrote src/tours/barcelona/content.ts: ${pois.length} POIs, ${segments} POI clips, ${bridges.length} bridges, ` +
-    `${fillers.length} fillers, ${Object.keys(texts).length} intro/system texts; ${topicMentions} topic mentions checked against ${knownTopics.size} ids in 10_Topic_List.md`,
+  `wrote ${OUTPUT}: ${pois.length} POIs, ${segments} POI clips, ${bridges.length} bridges, ${fillers.length} fillers, ` +
+    `${Object.keys(texts).length} intro/system texts; ${topicMentions} topic mentions checked against ${knownTopics.size} ids in 10_Topic_List.md`,
 );
-for (const d of KNOWN_README_DIFFERENCES) console.warn(`warning: accepted README difference ${d.poi} ${d.field} — ${d.why}`);
+for (const d of tour.knownReadmeDifferences) console.warn(`warning: accepted README difference ${d.poi} ${d.field} — ${d.why}`);

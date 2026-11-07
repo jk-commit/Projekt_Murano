@@ -1,10 +1,10 @@
-// Builds a fixed-order Barcelona tour from the generated content: picks FULL or CALLBACK per topic block
+// Builds a fixed-order tour from a scripted tour's generated content: picks FULL or CALLBACK per topic block
 // from the order (told-once registry), and the bridge or filler for each leg by the rules in
-// scripts/Barcelona/de/20_Verbindungen.md. The dynamic tour can reuse resolveCore and pickBridge as they are.
+// the tour's 20_Verbindungen.md. The dynamic tour can reuse resolveCore and pickBridge as they are.
 //
-// Only type imports here, so `node scripts/print-barcelona-route.mjs` can run this file directly.
+// Only type imports here, so `node scripts/print-tour-route.mjs <tour>` can run this file directly.
 import type { LatLng, Stop } from "../types";
-import type { BarcelonaContent, BarcelonaPoi, Bridge, Clip, GroupSet } from "./types";
+import type { ScriptedTourContent, ScriptedPoi, Bridge, Clip, GroupSet } from "./types";
 
 /** "Weg länger als 150 m" — shorter legs without a bridge get no filler. */
 export const FILLER_MIN_METERS = 150;
@@ -16,7 +16,7 @@ export type CoreChoice = { topicId: string; played: "full" | "callback" | "skipp
  * CALLBACK for a told one, nothing for a callback-only block whose topic was never told.
  * `introduced` is what to add to the registry once the core has played (blocks and fixed text).
  */
-export function resolveCore(poi: BarcelonaPoi, told: ReadonlySet<string>) {
+export function resolveCore(poi: ScriptedPoi, told: ReadonlySet<string>) {
   const clips: Clip[] = [];
   const choices: CoreChoice[] = [];
   for (const segment of poi.core) {
@@ -63,16 +63,25 @@ export interface PlanEntry {
 
 export interface FixedRouteOptions {
   legs: Leg[];
-  /** The location-bound filler (F05) plays on this leg as its own walk stop at the trigger point. */
+  /** A location-bound filler (Barcelona F05) plays on this leg as its own walk stop at the trigger point. */
   locationFiller?: { id: string; from: string; to: string; name: string };
-  /** Short German display names ("Kathedrale"); defaults to the POI name. */
-  displayName?: (poi: BarcelonaPoi) => string;
+  /** Short display names ("Kathedrale"); defaults to the POI name. */
+  displayName?: (poi: ScriptedPoi) => string;
+  /** Text id played once, at the first POI with a safety note (S-SICHER-ALLG, S-SICHER). */
+  safetyText: string;
+  /** UI strings in the tour's language. */
+  labels: {
+    /** Walk hint under the player, e.g. "Nächster Stopp: Kathedrale · ~2 Min. zu Fuß". */
+    nextStop: (name: string, minutes: number) => string;
+    /** Name of the walk stop to a POI, e.g. "Weg zu: Kathedrale". */
+    walkTo: (name: string) => string;
+  };
 }
 
 const file = (clip: Clip) => clip.audio.split("/").pop() ?? clip.audio;
 
 /** Stops and intro for a fixed tour in the order of `options.legs`, plus a readable plan for checking. */
-export function buildFixedRoute(content: BarcelonaContent, options: FixedRouteOptions) {
+export function buildFixedRoute(content: ScriptedTourContent, options: FixedRouteOptions) {
   const { legs, locationFiller } = options;
   const order = [legs[0].from, ...legs.map((l) => l.to)];
   const poiById = new Map(content.pois.map((p) => [p.id, p]));
@@ -81,7 +90,7 @@ export function buildFixedRoute(content: BarcelonaContent, options: FixedRouteOp
     if (!p) throw new Error(`Unknown POI ${id}`);
     return p;
   };
-  const name = (p: BarcelonaPoi) => options.displayName?.(p) ?? p.name;
+  const name = (p: ScriptedPoi) => options.displayName?.(p) ?? p.name;
   const text = (id: string) => {
     const t = content.texts[id];
     if (!t) throw new Error(`Missing text ${id}`);
@@ -95,7 +104,7 @@ export function buildFixedRoute(content: BarcelonaContent, options: FixedRouteOp
   const told = new Set<string>();
   const usedBridges = new Set<string>();
   const usedFillers = new Set<string>(locationFiller ? [locationFiller.id] : []);
-  let warnedPickpockets = false;
+  let playedSafety = false;
 
   const stops: Stop[] = [];
   const plan: PlanEntry[] = [];
@@ -104,7 +113,7 @@ export function buildFixedRoute(content: BarcelonaContent, options: FixedRouteOp
     plan.push({ stopId: stop.id, name: stop.name, clips: entries.map((e) => ({ file: file(e.clip), note: e.note })) });
   };
   const hint = (leg: Leg | undefined) =>
-    leg && `Nächster Stopp: ${name(poi(leg.to))} · ~${Math.max(1, Math.round(leg.meters / WALKING_METERS_PER_MINUTE))} Min. zu Fuß`;
+    leg && options.labels.nextStop(name(poi(leg.to)), Math.max(1, Math.round(leg.meters / WALKING_METERS_PER_MINUTE)));
 
   const first = poi(order[0]);
   const intro = [
@@ -117,9 +126,9 @@ export function buildFixedRoute(content: BarcelonaContent, options: FixedRouteOp
     const leg = legs[index];
     const entries: { clip: Clip; note: string }[] = [];
 
-    if (p.pickpockets && !warnedPickpockets) {
-      warnedPickpockets = true;
-      entries.push({ clip: text("S-SICHER-ALLG"), note: "Taschendiebe (einmal pro Tour)" });
+    if (p.safetyNote && !playedSafety) {
+      playedSafety = true;
+      entries.push({ clip: text(options.safetyText), note: "Sicherheitshinweis (einmal pro Tour)" });
     }
     const core = resolveCore(p, told);
     for (const clip of core.clips) {
@@ -152,7 +161,7 @@ export function buildFixedRoute(content: BarcelonaContent, options: FixedRouteOp
       }
     }
     const approach = { clip: next.approach, note: `Anfahrt ${next.id}` };
-    const walkName = `Weg zu: ${name(next)}`;
+    const walkName = options.labels.walkTo(name(next));
 
     if (locationFiller && locationFiller.from === p.id && locationFiller.to === next.id) {
       const filler = content.fillers.find((f) => f.id === locationFiller.id);

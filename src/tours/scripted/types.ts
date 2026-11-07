@@ -14,7 +14,7 @@ export type CoreSegment =
   | ({ kind: "fixed" } & Clip)
   | ({ kind: "full" | "callback"; topicId: string } & Clip);
 
-export interface BarcelonaPoi {
+export interface ScriptedPoi {
   id: string;
   name: string;
   /** Theme group from 20_Verbindungen.md (ROM, GOT, …); picks the bridge between two POIs. */
@@ -29,8 +29,8 @@ export interface BarcelonaPoi {
   callbacks: string[];
   /** S = sensitive, V = fact with an expiry date. */
   flags: string[];
-  /** Play S-SICHER-ALLG here (once per tour). */
-  pickpockets: boolean;
+  /** Play the tour's safety text here (S-SICHER-ALLG, S-SICHER; once per tour). */
+  safetyNote: boolean;
   nearby: { id: string; meters: number }[];
   approach: Clip;
   /** Only played when another POI's approach radius overlaps (dynamic tour). */
@@ -59,10 +59,10 @@ export interface Filler extends Clip {
   trigger?: { position: LatLng; radius: number };
 }
 
-export interface BarcelonaContent {
+export interface ScriptedTourContent {
   audioBase: string;
   groups: Record<string, string>;
-  pois: BarcelonaPoi[];
+  pois: ScriptedPoi[];
   bridges: Bridge[];
   fillers: Filler[];
   /** MEET, INTRO, INTRO-WEIT, OUTRO and the system texts S-…. */

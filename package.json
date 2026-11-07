@@ -12,9 +12,12 @@
     "audio:umea": "node --env-file=.env.local scripts/generate-umea-audio.mjs",
     "audio:stavanger": "node --env-file=.env.local scripts/generate-stavanger-audio.mjs",
     "audio:hamburg": "node --env-file=.env.local scripts/generate-hamburg-audio.mjs",
-    "content:barcelona": "node scripts/parse-barcelona-content.mjs",
-    "route:barcelona": "node scripts/print-barcelona-route.mjs",
-    "audio:barcelona": "node --env-file=.env.local scripts/generate-barcelona-audio.mjs"
+    "content:barcelona": "node scripts/parse-tour-content.mjs barcelona",
+    "route:barcelona": "node scripts/print-tour-route.mjs barcelona",
+    "audio:barcelona": "node --env-file=.env.local scripts/generate-tour-audio.mjs barcelona",
+    "content:zurich-city-tour": "node scripts/parse-tour-content.mjs zurich-city-tour",
+    "route:zurich-city-tour": "node scripts/print-tour-route.mjs zurich-city-tour",
+    "audio:zurich-city-tour": "node --env-file=.env.local scripts/generate-tour-audio.mjs zurich-city-tour"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

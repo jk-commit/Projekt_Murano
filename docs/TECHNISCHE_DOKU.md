@@ -25,7 +25,8 @@ Diese Doku beschreibt den Ist-Zustand der App als Grundlage für die Planung der
 | `umea` | Umeå City Tour | 7 | Englisch, Deutsch | Elin |
 | `stavanger` | Stavanger Stadtführung | 9 | Deutsch | Håkon |
 | `hamburg` | Hamburg Stadtführung | 9 | Deutsch | Stefanie |
-| `barcelona` | Barcelona Altstadt (Pilot, feste Reihenfolge; Audio noch nicht erzeugt) | 12 | Deutsch | Carlos |
+| `barcelona` | Barcelona Altstadt (Pilot, feste Reihenfolge) | 12 | Deutsch | Carlos |
+| `zurich-city-tour` | Zurich City Tour (Pilot, feste Reihenfolge; Audio noch nicht erzeugt) | 12 | Englisch | Peter |
 
 **Wichtig: GPS löst noch keine Stationen aus.** Der Fortschritt läuft über „Next Stop“, den Zurück-Button und Sprünge über die Karte. Die Startseite verspricht „GPS-guided“, das ist aber noch nicht umgesetzt. Der echte Standort wird auf der Landing Page abgefragt, um die nächstgelegene Tour hervorzuheben („Near you!“), und in der Tour als blauer Punkt auf der Karte angezeigt.
 
@@ -71,7 +72,8 @@ src/
   tours/
     types.ts              Datenmodell Tour / Stop
     zurich.ts, kitzingen.ts, umea.ts, stavanger.ts, hamburg.ts   Tourdaten (reine Daten)
-    barcelona/            Barcelona: content.ts (generiert aus Markdown), fixedRoute.ts (Told-once, Brücken), route.ts, tour.ts
+    scripted/             Gemeinsam für Touren aus Markdown-Skripten: types.ts, fixedRoute.ts (Told-once, Brücken, Füller)
+    barcelona/, zurich-city-tour/   je content.ts (generiert aus Markdown), route.ts (Reihenfolge), tour.ts
     index.ts              Registry: tours[], getTour(id), poiStops(tour)
   hooks/
     useTourEngine.ts      Tour-Ablauf (Intro, Next Stop, Zurück, Sprünge, Timer-Trigger, Abschluss)
@@ -149,7 +151,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
 - **Endpoint:** `POST {SUPABASE_URL}/functions/v1/ask-marco`
 - **Request:** `multipart/form-data` mit den Feldern
   - `audio`: Aufnahme als webm, max. 10 MB
-  - `tourId`: `zurich` | `kitzingen` | `umea` | `stavanger` | `hamburg` | `barcelona`
+  - `tourId`: `zurich` | `kitzingen` | `umea` | `stavanger` | `hamburg` | `barcelona` | `zurich-city-tour`
   - `poiLabel`: der aktuelle Ort, max. 80 Zeichen
   - `language` (optional): `en` | `de`, die Antwortsprache. Fehlt das Feld oder ist der Wert unbekannt, gilt die Sprache aus `TOURS`.
 - **Stimme:** Eine Tour kann in `TOURS` eine eigene `voiceId` haben (Umeå: Elins Stimme aus den Touraufnahmen). Kennt der ElevenLabs-Account hinter `ELEVENLABS_API_KEY` diese Stimme nicht, antwortet die Function mit `ELEVENLABS_VOICE_ID` und schreibt „Tour voice failed“ ins Log.
@@ -207,9 +209,10 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Umeå: `public/audio/Umea` (Englisch), `public/audio/Umea/de` (Deutsch)
   - Stavanger: `public/audio/Stavanger/de` (nur Deutsch)
   - Hamburg: `public/audio/Hamburg/de` (nur Deutsch)
-  - Barcelona: `public/audio/Barcelona/de` (nur Deutsch, noch nicht erzeugt)
+  - Barcelona: `public/audio/Barcelona/de` (nur Deutsch)
+  - Zurich City Tour: `public/audio/Zurich-City/en` (nur Englisch, noch nicht erzeugt)
 
-  Ablage für neue Städte: `public/audio/<Stadt>/<sprache>/NN_StopN_Name.mp3` (ASCII, keine Leerzeichen). Unter `public/audio/` liegen nur die MP3s; die Sprechtexte stehen unverändert als `.txt` mit gleichem Namen in `scripts/<Stadt>/<sprache>/`. Erzeugt wird das Audio pro Stadt mit `scripts/generate-<stadt>-audio.mjs` (`npm run audio:<stadt>`). **Ausnahme Barcelona:** Die Texte stehen als Markdown in `scripts/Barcelona/de/` (Quelle auch für die spätere dynamische Tour; `content.ts` nie von Hand ändern). `npm run content:barcelona` erzeugt daraus `src/tours/barcelona/content.ts` und prüft dabei Format, Topic-Tags, die JSON im README und die Topic-IDs gegen `10_Topic_List.md`. Pro Segment (fester Text, FULL, CALLBACK, Anfahrt, Standort-Check, Brücke, Füller, Systemtext) entsteht eine eigene MP3, z. B. `P04_core_02_C20-05_full.mp3`. Welche Segmente eine Station spielt, rechnet `fixedRoute.ts` aus der Reihenfolge in `route.ts` aus; `npm run route:barcelona` zeigt das Ergebnis. `npm run audio:barcelona` erzeugt die MP3s (`--only P04`, `--only pronunciation`, `--changed`, `--force`).
+  Ablage für neue Städte: `public/audio/<Stadt>/<sprache>/NN_StopN_Name.mp3` (ASCII, keine Leerzeichen). Unter `public/audio/` liegen nur die MP3s; die Sprechtexte stehen unverändert als `.txt` mit gleichem Namen in `scripts/<Stadt>/<sprache>/`. Erzeugt wird das Audio pro Stadt mit `scripts/generate-<stadt>-audio.mjs` (`npm run audio:<stadt>`). **Ausnahme: Touren aus Markdown-Skripten** (Barcelona, Zurich City Tour; Liste in `scripts/scripted-tours.mjs`): Die Texte stehen als Markdown in `scripts/<Ordner>/<sprache>/` (Quelle auch für die spätere dynamische Tour; `content.ts` nie von Hand ändern). `npm run content:<tour>` (`scripts/parse-tour-content.mjs`) erzeugt daraus `src/tours/<tour>/content.ts` und prüft dabei Format, Topic-Tags, die JSON im README und die Topic-IDs gegen `10_Topic_List.md`. Pro Segment (fester Text, FULL, CALLBACK, Anfahrt, Standort-Check, Brücke, Füller, Systemtext) entsteht eine eigene MP3, z. B. `P04_core_02_C20-05_full.mp3`. Welche Segmente eine Station spielt, rechnet `src/tours/scripted/fixedRoute.ts` aus der Reihenfolge in `route.ts` aus; `npm run route:<tour>` zeigt das Ergebnis. `npm run audio:<tour>` (`scripts/generate-tour-audio.mjs`) erzeugt die MP3s (`--only P04`, `--only pronunciation`, `--changed`, `--force`); die Stimme kommt aus `ELEVENLABS_VOICE_CARLOS` bzw. `ELEVENLABS_VOICE_PETER`.
 
   Jede neue Stadt entsteht auf einem eigenen Branch `feature/<stadt>-tour` und kommt per Pull Request nach `main`.
 
@@ -221,6 +224,7 @@ Supabase wird aktuell für genau **zwei Dinge** genutzt: **Auth** und **eine Edg
   - Stavanger (`/Stavanger.jpg`, „Gamle Stavanger 13“ von Wikimedia Commons): „© Maarten Heerlien / CC BY 2.0“.
   - Hamburg (`/Hamburg.jpg`, „Hamburg, Elbphilharmonie -- 2023 -- 6565“ von Wikimedia Commons): „© Dietmar Rabich / CC BY-SA 4.0“.
   - Barcelona (`/Barcelona.jpg`, „PONT del CARRER del BISBE - panoramio“ von Wikimedia Commons): „© trolvag / CC BY-SA 3.0“.
+  - Zurich City Tour (`/Zurich-City.jpg`, „Zürich Switzerland-Münsterbrücke-and-Fraumünster-01“ von Wikimedia Commons): „© CEphoto, Uwe Aranas / CC BY-SA 3.0“.
 - **Tourinhalte** (Texte, Koordinaten, Audio-URLs) stehen als TypeScript im Code. Jede inhaltliche Änderung braucht deshalb ein neues Deployment, ein CMS gibt es nicht.
 
 ---
