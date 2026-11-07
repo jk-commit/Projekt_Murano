@@ -24,3 +24,6 @@ dist-ssr
 
 # Supabase CLI local cache
 supabase/.temp
+
+# Barcelona pronunciation test (npm run audio:barcelona -- --only pronunciation)
+scripts/Barcelona/pronunciation_test.mp3

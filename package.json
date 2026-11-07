@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "audio:umea": "node --env-file=.env.local scripts/generate-umea-audio.mjs",
     "audio:stavanger": "node --env-file=.env.local scripts/generate-stavanger-audio.mjs",
-    "audio:hamburg": "node --env-file=.env.local scripts/generate-hamburg-audio.mjs"
+    "audio:hamburg": "node --env-file=.env.local scripts/generate-hamburg-audio.mjs",
+    "content:barcelona": "node scripts/parse-barcelona-content.mjs",
+    "route:barcelona": "node scripts/print-barcelona-route.mjs",
+    "audio:barcelona": "node --env-file=.env.local scripts/generate-barcelona-audio.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

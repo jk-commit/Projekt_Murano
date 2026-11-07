@@ -7,7 +7,7 @@ import { useAudioPlayer } from "./useAudioPlayer";
  * map jumps, fires timer-triggered stops, and detects when the tour is complete.
  */
 export function useTourEngine(tour: Tour, showToast: (msg: string) => void) {
-  const audio = useAudioPlayer();
+  const audio = useAudioPlayer(tour.trackGapSeconds === undefined ? undefined : tour.trackGapSeconds * 1000);
   const { state: audioState, playSequence, skipCurrent } = audio;
 
   // -1 = intro playing, otherwise index into tour.stops

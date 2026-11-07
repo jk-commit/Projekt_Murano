@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
-const PAUSE_BETWEEN_TRACKS_MS = 3000;
+const DEFAULT_PAUSE_BETWEEN_TRACKS_MS = 3000;
 
 export const PLAYBACK_RATES: readonly number[] = [0.75, 1, 1.25, 1.5, 2];
 export const SEEK_SECONDS = 15;
@@ -35,7 +35,8 @@ export interface AudioPlayerState {
   label: string;
 }
 
-export function useAudioPlayer() {
+/** `pauseBetweenTracksMs` applies between the tracks of every sequence this player plays. */
+export function useAudioPlayer(pauseBetweenTracksMs = DEFAULT_PAUSE_BETWEEN_TRACKS_MS) {
   const [state, setState] = useState<AudioPlayerState>({
     isPlaying: false,
     currentTrackIndex: 0,
@@ -114,7 +115,7 @@ export function useAudioPlayer() {
             if (activeRef.current && !isPausedRef.current) {
               playTrackAtIndex(nextIndex);
             }
-          }, PAUSE_BETWEEN_TRACKS_MS);
+          }, pauseBetweenTracksMs);
         } else {
           stopAudio();
           clearState();
@@ -137,7 +138,7 @@ export function useAudioPlayer() {
         label: labelRef.current,
       });
     },
-    [stopAudio, clearState],
+    [stopAudio, clearState, pauseBetweenTracksMs],
   );
 
   const playSequence = useCallback(
