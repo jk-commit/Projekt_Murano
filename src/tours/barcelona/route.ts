@@ -1,5 +1,5 @@
-import type { FixedRouteOptions } from "./fixedRoute";
-import type { BarcelonaPoi } from "./types";
+import type { FixedRouteOptions } from "../scripted/fixedRoute";
+import type { ScriptedPoi } from "../scripted/types";
 
 // The fixed walking order of the Barcelona pilot. Change the order here; FULL/CALLBACK, bridges and
 // fillers follow from it (see fixedRoute.ts). Check the result with `npm run route:barcelona`.
@@ -23,5 +23,10 @@ export const BARCELONA_ROUTE: FixedRouteOptions = {
   // F05 is location-bound; on this route the Via Laietana is crossed between Plaça Reial and Montcada.
   locationFiller: { id: "F05", from: "P09", to: "P10", name: "Via Laietana" },
   // "Kathedrale (Plaça de la Seu)" → "Kathedrale": the part in brackets is only for the scripts.
-  displayName: (poi: BarcelonaPoi) => poi.name.replace(/\s*\([^)]*\)\s*$/, ""),
+  displayName: (poi: ScriptedPoi) => poi.name.replace(/\s*\([^)]*\)\s*$/, ""),
+  safetyText: "S-SICHER-ALLG",
+  labels: {
+    nextStop: (name, minutes) => `Nächster Stopp: ${name} · ~${minutes} Min. zu Fuß`,
+    walkTo: (name) => `Weg zu: ${name}`,
+  },
 };

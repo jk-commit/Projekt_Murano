@@ -1,18 +1,21 @@
-// Prints the fixed Barcelona route as the app plays it: per stop the clips in order, with the FULL/CALLBACK
-// choice, bridges, fillers and system texts. Run: npm run route:barcelona
-// Uses the same code as the app (src/tours/barcelona/fixedRoute.ts), run directly by Node's type stripping.
+// Prints a scripted tour's fixed route as the app plays it: per stop the clips in order, with the FULL/CALLBACK
+// choice, bridges, fillers and system texts. Run: npm run route:<tour>  (= node scripts/print-tour-route.mjs <tour id>)
+// Uses the same code as the app (src/tours/scripted/fixedRoute.ts), run directly by Node's type stripping.
 
-import { barcelonaContent } from "../src/tours/barcelona/content.ts";
-import { buildFixedRoute } from "../src/tours/barcelona/fixedRoute.ts";
-import { BARCELONA_ROUTE } from "../src/tours/barcelona/route.ts";
+import { buildFixedRoute } from "../src/tours/scripted/fixedRoute.ts";
+import { scriptedTour } from "./scripted-tours.mjs";
 
-const route = buildFixedRoute(barcelonaContent, BARCELONA_ROUTE);
+const tour = scriptedTour(process.argv[2]);
+const { [tour.exportName]: content } = await import(tour.contentModule);
+// route.ts exports one route (FixedRouteOptions): the export that has legs.
+const routeOptions = Object.values(await import(tour.routeModule)).find((v) => v && Array.isArray(v.legs));
+const route = buildFixedRoute(content, routeOptions);
 const seconds = (file) => {
   const clip = [
-    ...barcelonaContent.pois.flatMap((p) => [p.approach, ...p.core]),
-    ...barcelonaContent.bridges,
-    ...barcelonaContent.fillers,
-    ...Object.values(barcelonaContent.texts),
+    ...content.pois.flatMap((p) => [p.approach, ...p.core]),
+    ...content.bridges,
+    ...content.fillers,
+    ...Object.values(content.texts),
   ].find((c) => c.audio.endsWith(`/${file}`));
   // 140 words per minute, as in the scripts.
   return clip ? Math.round((clip.text.split(/\s+/).length / 140) * 60) : 0;

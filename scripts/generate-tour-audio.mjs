@@ -1,41 +1,44 @@
-// Generates the German Barcelona audio (guide Carlos) with ElevenLabs into public/audio/Barcelona/de/.
-// Run: npm run audio:barcelona   (reads ELEVENLABS_API_KEY from .env.local)
+// Generates a scripted tour's audio with ElevenLabs into public/audio/<Folder>/<lang>/.
+// Run: npm run audio:<tour>   (= node --env-file=.env.local scripts/generate-tour-audio.mjs <tour id>;
+// reads ELEVENLABS_API_KEY and the tour's voice variable from .env.local; tours in scripted-tours.mjs)
 //
-// One MP3 per clip of src/tours/barcelona/content.ts (generated from the markdown by `npm run content:barcelona`):
+// One MP3 per clip of src/tours/<dir>/content.ts (generated from the markdown by `npm run content:<tour>`):
 // every fixed core segment, FULL and CALLBACK block, approach, location check, bridge, filler, intro, outro and
 // system text — also the ones the fixed tour doesn't play yet, so the dynamic tour can use the same files.
-// The text is spoken exactly as written; the Catalan names are already respelled for TTS.
+// The text is spoken exactly as written; foreign names are already respelled for TTS.
 //
-//   npm run audio:barcelona -- --only pronunciation   test file with all respelled names → scripts/Barcelona/pronunciation_test.mp3
+//   npm run audio:barcelona -- --only pronunciation   test file with all respelled names → scripts/<Folder>/pronunciation_test.mp3
 //   npm run audio:barcelona -- --only P04             one POI (all files starting with "P04_"); also B03, F05, INTRO, S-NAH, …
 //   npm run audio:barcelona -- --only P04_approach.mp3   single files
 //   npm run audio:barcelona -- --changed              also regenerate files whose text changed since they were made
 //   npm run audio:barcelona -- --force                regenerate everything selected, even unchanged files
 //
-// Existing files are skipped so credits are not spent twice. scripts/Barcelona/audio-manifest.json remembers the
+// Existing files are skipped so credits are not spent twice. scripts/<Folder>/audio-manifest.json remembers the
 // text and voice each file was made from; files whose text changed since are listed as stale.
-//
-// Voice: ELEVENLABS_VOICE_CARLOS, else the voice chosen for Carlos on 07.11.2026.
 
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { barcelonaContent } from "../src/tours/barcelona/content.ts";
+import { scriptedTour } from "./scripted-tours.mjs";
 
-const AUDIO_DIR = new URL("../public/audio/Barcelona/de/", import.meta.url);
-const MANIFEST = new URL("./Barcelona/audio-manifest.json", import.meta.url);
-const README = new URL("./Barcelona/de/00_README.md", import.meta.url);
-const TEST_FILE = new URL("./Barcelona/pronunciation_test.mp3", import.meta.url);
-const VOICE_ID = process.env.ELEVENLABS_VOICE_CARLOS || "hQsBZyP1VzBdsHrgFT7M";
+const tour = scriptedTour(process.argv[2]);
+const { [tour.exportName]: content } = await import(tour.contentModule);
+const AUDIO_DIR = tour.audioDir;
+const MANIFEST = tour.manifestFile;
+const README = new URL("00_README.md", tour.srcDir);
+const TEST_FILE = tour.testFile;
+const VOICE_ID = process.env[tour.voice.env] || tour.voice.fallback;
 const MODEL_ID = "eleven_multilingual_v2";
 const VOICE_SETTINGS = { stability: 0.45, similarityBoost: 0.8, style: 0.15, speed: 1, useSpeakerBoost: true };
 const PARAGRAPH_PAUSE_SECONDS = 0.6;
+const PRONUNCIATION = tour.pronunciation;
 
-// Words the voice still mispronounces, replaced only on the way to ElevenLabs (the markdown stays as it is).
-// Fill in after listening to the pronunciation test, e.g. ["Kalj", "Kallj"].
-const PRONUNCIATION = [];
+if (!VOICE_ID) {
+  console.error(`No voice for ${tour.id}: set ${tour.voice.env} in .env.local`);
+  process.exit(1);
+}
 
-const args = process.argv.slice(2);
+const args = process.argv.slice(3);
 const force = args.includes("--force");
 const changed = args.includes("--changed");
 const onlyIndex = args.indexOf("--only");
@@ -87,7 +90,7 @@ const concat = (parts) => {
 
 // --- Clips ---
 
-const c = barcelonaContent;
+const c = content;
 const clips = [
   ...Object.values(c.texts),
   ...c.pois.flatMap((p) => [p.approach, ...(p.locationCheck ? [p.locationCheck] : []), ...p.core]),
@@ -101,14 +104,14 @@ for (const { file } of clips) {
   files.add(file);
 }
 
-// The "Im Skript" column of the pronunciation table in 00_README.md, one name per paragraph.
+// The respelled column ("Im Skript", "In the script") of the respelling table in 00_README.md, one name per paragraph.
 function pronunciationTest() {
   const readme = readFileSync(README, "utf8").replace(/\r\n/g, "\n");
-  const table = readme.split("## Aussprache-Ersetzungen")[1]?.split("\n## ")[0] ?? "";
+  const table = readme.split(`## ${tour.respellingsHeading}`)[1]?.split("\n## ")[0] ?? "";
   const words = table
     .split("\n")
     .map((l) => l.split("|").map((x) => x.trim()))
-    .filter((cells) => cells.length > 3 && cells[2] && cells[2] !== "Im Skript" && !/^-+$/.test(cells[2]))
+    .filter((cells) => cells.length > 3 && cells[2] && !["Im Skript", "In the script"].includes(cells[2]) && !/^-+$/.test(cells[2]))
     .map((cells) => cells[2]);
   if (words.length === 0) throw new Error("No pronunciation table found in 00_README.md");
   return words.map((w) => `${w}.`).join("\n\n");
@@ -143,7 +146,7 @@ async function speak(text) {
       .convert(VOICE_ID, {
         text: paragraph,
         modelId: MODEL_ID,
-        languageCode: "de",
+        languageCode: tour.lang,
         voiceSettings: VOICE_SETTINGS,
         outputFormat: "mp3_44100_128",
         previousRequestIds: requestIds.slice(-3),
@@ -161,7 +164,7 @@ async function speak(text) {
 if (only.includes("pronunciation")) {
   const { mp3, paragraphs, chars } = await speak(pronunciationTest());
   writeFileSync(TEST_FILE, mp3);
-  console.log(`wrote scripts/Barcelona/pronunciation_test.mp3 (${paragraphs} names, ${chars} chars)`);
+  console.log(`wrote scripts/${tour.folder}/pronunciation_test.mp3 (${paragraphs} names, ${chars} chars)`);
 }
 
 const stale = [];

@@ -1,10 +1,10 @@
 import type { Tour } from "../types";
 import { barcelonaContent } from "./content";
-import { buildFixedRoute } from "./fixedRoute";
+import { buildFixedRoute } from "../scripted/fixedRoute";
 import { BARCELONA_ROUTE } from "./route";
 
 // German only, fixed order (pilot v1). The texts are scripts/Barcelona/de/*.md, turned into content.ts by
-// scripts/parse-barcelona-content.mjs; the MP3s (one per segment) come from scripts/generate-barcelona-audio.mjs.
+// scripts/parse-tour-content.mjs; the MP3s (one per segment) come from scripts/generate-tour-audio.mjs.
 // GPS does not trigger anything yet: the user moves on with "Next Stop", as in the other tours. Every leg is a
 // walk stop with the bridge or filler for that leg and the next POI's approach text.
 const route = buildFixedRoute(barcelonaContent, BARCELONA_ROUTE);
