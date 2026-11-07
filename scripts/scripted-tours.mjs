@@ -33,8 +33,8 @@ export const SCRIPTED_TOURS = {
     requiredTexts: ["MEET", "INTRO", "INTRO-WEIT", "OUTRO", "S-NAH", "S-STEHEN", "S-QA-HINWEIS", "S-SICHER"],
     respellingsHeading: "Respellings",
     knownReadmeDifferences: [],
-    // Peter's voice: set ELEVENLABS_VOICE_PETER in .env.local (no fallback yet).
-    voice: { env: "ELEVENLABS_VOICE_PETER" },
+    // Voice chosen for Peter on 07.11.2026; ELEVENLABS_VOICE_PETER overrides it.
+    voice: { env: "ELEVENLABS_VOICE_PETER", fallback: "15CVCzDByBinCIoCblXo" },
     pronunciation: [],
   },
 };
